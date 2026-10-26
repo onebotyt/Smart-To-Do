@@ -314,21 +314,6 @@ bool FlutterWindow::OnCreate() {
         RegCloseKey(hKey);
       }
       result->Success(flutter::EncodableValue(true));
-    } else if (call.method_name() == "exitApp") {
-      close_to_bubble_ = false;
-      DestroyWindow(hwnd);
-      PostQuitMessage(0);
-      result->Success(flutter::EncodableValue(true));
-    } else if (call.method_name() == "setCloseToBubble") {
-      bool enabled = true;
-      if (const auto* args = std::get_if<flutter::EncodableMap>(call.arguments())) {
-        auto it = args->find(flutter::EncodableValue("enabled"));
-        if (it != args->end() && std::holds_alternative<bool>(it->second)) {
-          enabled = std::get<bool>(it->second);
-        }
-      }
-      close_to_bubble_ = enabled;
-      result->Success(flutter::EncodableValue(true));
     } else {
       result->NotImplemented();
     }
