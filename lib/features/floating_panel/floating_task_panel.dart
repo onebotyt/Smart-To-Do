@@ -384,6 +384,12 @@ class _FloatingTaskPanelState extends State<FloatingTaskPanel> {
                   ),
                 ),
               ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline, size: 16, color: Colors.grey),
+              visualDensity: VisualDensity.compact,
+              tooltip: 'Delete task',
+              onPressed: () => controller.remove(task),
+            ),
           ],
         ),
       ),

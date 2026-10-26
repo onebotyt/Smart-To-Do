@@ -57,15 +57,21 @@ class MainActivity : FlutterActivity() {
                         result.success(true)
                     }
                     "show" -> {
-                        isOverlayVisible = true
-                        result.success(true)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(this)) {
+                            val intent = Intent(this, FloatingBubbleService::class.java)
+                            startService(intent)
+                            result.success(true)
+                        } else {
+                            result.success(false)
+                        }
                     }
                     "hide" -> {
-                        isOverlayVisible = false
+                        val intent = Intent(this, FloatingBubbleService::class.java)
+                        stopService(intent)
                         result.success(true)
                     }
                     "isVisible" -> {
-                        result.success(isOverlayVisible)
+                        result.success(FloatingBubbleService.isRunning)
                     }
                     "openAppSettings" -> {
                         val intent = Intent(

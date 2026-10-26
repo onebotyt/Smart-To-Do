@@ -49,6 +49,12 @@
                 android:resource="@xml/sync_task_widget_info" />
         </receiver>
 
+        <!-- Native Floating Bubble Service -->
+        <service
+            android:name=".FloatingBubbleService"
+            android:enabled="true"
+            android:exported="false" />
+
         <!-- Boot Receiver for Startup & Widget Refresh -->
         <receiver
             android:name=".BootReceiver"

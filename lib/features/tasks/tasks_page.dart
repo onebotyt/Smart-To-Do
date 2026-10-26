@@ -11,6 +11,7 @@ import '../floating_panel/floating_task_panel.dart';
 import '../settings/settings_controller.dart';
 import '../settings/settings_page.dart';
 import '../sync/devices_page.dart';
+import '../sync/sync_controller.dart';
 import '../update/update_dialog.dart';
 import 'task_controller.dart';
 import 'task_edit_page.dart';
@@ -178,17 +179,23 @@ class _TasksPageState extends State<TasksPage> {
               MaterialPageRoute(builder: (_) => const DevicesPage()),
             ),
           ),
-          Consumer<SettingsController>(
-            builder: (context, s, _) => IconButton(
-              icon: Icon(
-                s.isAlwaysOnTop ? Icons.push_pin : Icons.push_pin_outlined,
-                color: s.isAlwaysOnTop ? theme.colorScheme.primary : null,
-              ),
-              tooltip: s.isAlwaysOnTop
-                  ? 'Always on top (stays above all apps)'
-                  : 'Pin on top of all apps',
-              onPressed: () => s.setAlwaysOnTop(!s.isAlwaysOnTop),
-            ),
+          IconButton(
+            icon: const Icon(Icons.sync),
+            tooltip: 'Sync & Refresh tasks',
+            onPressed: () async {
+              final sync = context.read<SyncController>();
+              final taskCtrl = context.read<TaskController>();
+              await sync.syncAll();
+              await taskCtrl.refresh();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(sync.statusMessage ?? 'Tasks refreshed & synced!'),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              }
+            },
           ),
           IconButton(
             icon: const Icon(Icons.settings_outlined),
@@ -644,7 +651,33 @@ class _TaskCard extends StatelessWidget {
                   ),
                 ),
 
-                const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, size: 20, color: Colors.grey),
+                  tooltip: 'Delete task',
+                  onPressed: () async {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Delete Task?'),
+                        content: Text('Are you sure you want to delete "${task.title}"?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('Cancel'),
+                          ),
+                          FilledButton(
+                            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text('Delete'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirmed == true) {
+                      c.remove(task);
+                    }
+                  },
+                ),
               ],
             ),
           ),

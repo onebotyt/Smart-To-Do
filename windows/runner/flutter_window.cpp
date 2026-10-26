@@ -99,7 +99,7 @@ void FlutterWindow::SetWindowMode(const std::string& mode) {
     SetWindowRgn(hwnd, nullptr, TRUE);
 
     SetWindowLongPtr(hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW | WS_VISIBLE);
-    SetWindowLongPtr(hwnd, GWL_EXSTYLE, is_always_on_top_ ? WS_EX_TOPMOST : 0);
+    SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_APPWINDOW);
 
     int nw = normal_rect_.right - normal_rect_.left;
     int nh = normal_rect_.bottom - normal_rect_.top;
@@ -118,8 +118,12 @@ void FlutterWindow::SetWindowMode(const std::string& mode) {
     if (ny + nh > workArea.bottom) ny = workArea.bottom - nh;
     if (ny < workArea.top) ny = workArea.top;
 
-    SetWindowPos(hwnd, is_always_on_top_ ? HWND_TOPMOST : HWND_NOTOPMOST,
+    SetWindowPos(hwnd, HWND_NOTOPMOST,
                  nx, ny, nw, nh, SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+
+    ShowWindow(hwnd, SW_RESTORE);
+    SetForegroundWindow(hwnd);
+    BringWindowToTop(hwnd);
 
     current_mode_ = "normal";
   }

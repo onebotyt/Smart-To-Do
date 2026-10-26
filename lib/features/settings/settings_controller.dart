@@ -1,3 +1,5 @@
+import 'dart:io';
+import '../../platform/floating_panel_service.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../platform/startup_service.dart';
@@ -38,6 +40,9 @@ class SettingsController extends ChangeNotifier {
     final controller = SettingsController._(prefs);
     if (controller.isAlwaysOnTop) {
       PlatformWindowService.setAlwaysOnTop(true);
+    }
+    if (Platform.isAndroid && controller.isFloatingBubbleEnabled) {
+      PlatformFloatingPanelService().show();
     }
     return controller;
   }
@@ -86,6 +91,13 @@ class SettingsController extends ChangeNotifier {
 
   Future<void> setFloatingBubbleEnabled(bool enabled) async {
     await _prefs.setBool('isFloatingBubbleEnabled', enabled);
+    if (Platform.isAndroid) {
+      if (enabled) {
+        await PlatformFloatingPanelService().show();
+      } else {
+        await PlatformFloatingPanelService().hide();
+      }
+    }
     notifyListeners();
   }
 
