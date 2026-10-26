@@ -85,11 +85,30 @@ class SyncTaskApp extends StatelessWidget {
         }
 
         return MaterialApp(
+          key: ValueKey(windowMode),
           title: 'SyncTask',
           debugShowCheckedModeBanner: false,
           themeMode: settings.themeMode,
           theme: lightTheme,
           darkTheme: darkTheme,
+          builder: (context, child) {
+            if (Platform.isWindows) {
+              final size = MediaQuery.of(context).size;
+              // Hard dimension guard: if the native window is at bubble dimensions (<= 120px),
+              // NEVER let the full app UI or TasksPage render inside the small bubble!
+              if (size.width <= 120 && size.height <= 120) {
+                return const DesktopFloatingBubble();
+              }
+              if (windowMode == AppWindowMode.panel ||
+                  (windowMode != AppWindowMode.normal && size.width <= 420)) {
+                return DesktopFloatingPanel(
+                  onClose: () => PlatformWindowService.setWindowMode(AppWindowMode.bubble),
+                  onExpand: () => PlatformWindowService.setWindowMode(AppWindowMode.normal),
+                );
+              }
+            }
+            return child ?? content;
+          },
           home: content,
         );
       },

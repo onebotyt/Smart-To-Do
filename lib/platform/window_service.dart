@@ -21,15 +21,18 @@ class PlatformWindowService {
     _channel.setMethodCallHandler((call) async {
       if (call.method == 'onWindowModeChanged') {
         final args = call.arguments;
+        String? modeStr;
         if (args is Map) {
-          final modeStr = args['mode'] as String?;
-          if (modeStr != null) {
-            final mode = AppWindowMode.values.firstWhere(
-              (m) => m.name == modeStr,
-              orElse: () => AppWindowMode.normal,
-            );
-            currentMode.value = mode;
-          }
+          modeStr = args['mode']?.toString();
+        } else if (args is String) {
+          modeStr = args;
+        }
+        if (modeStr != null) {
+          final mode = AppWindowMode.values.firstWhere(
+            (m) => m.name == modeStr,
+            orElse: () => AppWindowMode.normal,
+          );
+          currentMode.value = mode;
         }
       }
     });
