@@ -80,3 +80,54 @@ jobs:
         with:
           name: synctask-windows-release
           path: synctask-windows-release.zip
+
+  release:
+    name: Publish Auto-Versioned GitHub Release
+    needs: [build-android, build-windows]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Android Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: synctask-android-debug-apk
+
+      - name: Download Windows Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: synctask-windows-release
+
+      - name: Prepare Assets with Auto-Versioning
+        run: |
+          VERSION="v0.1.${{ github.run_number }}"
+          echo "VERSION_TAG=$VERSION" >> $GITHUB_ENV
+          mv app-debug.apk "SyncTask-${VERSION}-android.apk"
+          mv synctask-windows-release.zip "SyncTask-${VERSION}-windows.zip"
+
+      - name: Create or Update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.VERSION_TAG }}
+          name: SyncTask ${{ env.VERSION_TAG }}
+          draft: false
+          prerelease: false
+          body: |
+            ## SyncTask ${{ env.VERSION_TAG }}
+            
+            Automated release generated from commit `${{ github.sha }}`.
+
+            ### Downloads
+            - 📱 **Android APK**: `SyncTask-${{ env.VERSION_TAG }}-android.apk`
+            - 💻 **Windows Application (Zip)**: `SyncTask-${{ env.VERSION_TAG }}-windows.zip`
+
+            ### What's New
+            - Cross-platform task manager with SQLite storage
+            - Category chips & Pending/Completed view toggle
+            - Transactional change log for future device-to-device sync
+          files: |
+            SyncTask-${{ env.VERSION_TAG }}-android.apk
+            SyncTask-${{ env.VERSION_TAG }}-windows.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
