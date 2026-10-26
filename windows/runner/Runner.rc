@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.synctask" "\0"
-            VALUE "FileDescription", "synctask" "\0"
+            VALUE "CompanyName", "Girdhar Dhami (OneBotYT)" "\0"
+            VALUE "FileDescription", "SyncTask - Local-First Task Manager" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "synctask" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.synctask. All rights reserved." "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 Girdhar Dhami (OneBotYT). All rights reserved." "\0"
             VALUE "OriginalFilename", "synctask.exe" "\0"
-            VALUE "ProductName", "synctask" "\0"
+            VALUE "ProductName", "SyncTask" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

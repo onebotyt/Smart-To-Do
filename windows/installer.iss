@@ -1,6 +1,6 @@
 #define MyAppName "SyncTask"
 #define MyAppVersion "0.1.0"
-#define MyAppPublisher "SyncTask Open Source"
+#define MyAppPublisher "Girdhar Dhami (OneBotYT)"
 #define MyAppURL "https://github.com/onebotyt/Smart-To-Do"
 #define MyAppExeName "synctask.exe"
 
@@ -12,6 +12,12 @@ AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
+VersionInfoCompany={#MyAppPublisher}
+VersionInfoDescription=SyncTask Setup Installer
+VersionInfoVersion={#MyAppVersion}
+VersionInfoCopyright=Copyright (C) 2026 {#MyAppPublisher}
+VersionInfoProductName={#MyAppName}
+VersionInfoProductVersion={#MyAppVersion}
 DefaultDirName={localappdata}\Programs\{#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=..\

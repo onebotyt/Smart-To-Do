@@ -38,8 +38,8 @@ jobs:
 
       - name: Build Android Release APKs
         run: |
-          flutter build apk --release
-          flutter build apk --release --split-per-abi
+          flutter build apk --release --dart-define=APP_VERSION=0.1.${{ github.run_number }}
+          flutter build apk --release --split-per-abi --dart-define=APP_VERSION=0.1.${{ github.run_number }}
 
       - name: Upload Android Universal APK
         uses: actions/upload-artifact@v4
@@ -76,7 +76,12 @@ jobs:
         run: flutter test
 
       - name: Build Windows Desktop Release
-        run: flutter build windows --release
+        run: flutter build windows --release --dart-define=APP_VERSION=0.1.${{ github.run_number }}
+
+      - name: Sign Windows Executable
+        shell: pwsh
+        run: |
+          .\windows\sign.ps1 -FilePath "build\windows\x64\runner\Release\synctask.exe"
 
       - name: Copy Install Scripts to Bundle
         shell: pwsh
@@ -90,6 +95,11 @@ jobs:
       - name: Compile Windows Setup Installer
         run: |
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" windows\installer.iss
+
+      - name: Sign Setup Installer
+        shell: pwsh
+        run: |
+          .\windows\sign.ps1 -FilePath "SyncTask-Setup.exe"
 
       - name: Compress Windows bundle
         shell: pwsh

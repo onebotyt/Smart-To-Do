@@ -60,7 +60,7 @@ if (-not (Test-Path $regPath)) {
 Set-ItemProperty -Path $regPath -Name "DisplayName" -Value "SyncTask"
 Set-ItemProperty -Path $regPath -Name "DisplayIcon" -Value "$exePath,0"
 Set-ItemProperty -Path $regPath -Name "DisplayVersion" -Value "0.1.0"
-Set-ItemProperty -Path $regPath -Name "Publisher" -Value "SyncTask Open Source"
+Set-ItemProperty -Path $regPath -Name "Publisher" -Value "Girdhar Dhami (OneBotYT)"
 Set-ItemProperty -Path $regPath -Name "InstallLocation" -Value $targetDir
 Set-ItemProperty -Path $regPath -Name "UninstallString" -Value "powershell.exe -NoProfile -Command Remove-Item -Recurse -Force '$targetDir'; Remove-Item -Force '$desktopShortcutPath'; Remove-Item -Force '$startMenuShortcutPath'; Remove-Item -Recurse -Force '$regPath'"
 

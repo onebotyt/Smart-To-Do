@@ -200,8 +200,17 @@ class _TasksPageState extends State<TasksPage> {
                         ),
                       ),
                       FilledButton(
-                        onPressed: () => UpdateDownloadDialog.show(context, _availableUpdate!),
+                        onPressed: () async {
+                          await UpdateDownloadDialog.show(context, _availableUpdate!);
+                          if (mounted) setState(() => _availableUpdate = null);
+                        },
                         child: const Text('Update Now'),
+                      ),
+                      const SizedBox(width: 4),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 18),
+                        tooltip: 'Dismiss',
+                        onPressed: () => setState(() => _availableUpdate = null),
                       ),
                     ],
                   ),

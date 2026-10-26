@@ -29,7 +29,7 @@ class GitHubUpdateService implements UpdateService {
   GitHubUpdateService({
     this.repoOwner = 'onebotyt',
     this.repoName = 'Smart-To-Do',
-    this.currentVersion = '0.1.0',
+    this.currentVersion = const String.fromEnvironment('APP_VERSION', defaultValue: '0.1.16'),
   });
 
   final String repoOwner;
