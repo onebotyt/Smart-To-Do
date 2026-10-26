@@ -4,6 +4,8 @@ import '../../data/models/task.dart';
 import '../../data/repositories/task_repository.dart';
 import '../settings/settings_controller.dart';
 
+enum TaskFilter { all, pending, completed }
+
 class TaskController extends ChangeNotifier {
   TaskController(this._repo, this._settings) {
     _settings.addListener(refresh);
@@ -13,11 +15,31 @@ class TaskController extends ChangeNotifier {
   final SettingsController _settings;
 
   List<Task> tasks = [];
+  List<String> categories = [];
+  String? selectedCategory;
+  TaskFilter filter = TaskFilter.all;
   String query = '';
 
   Future<void> refresh() async {
+    categories = await _repo.categories();
+    if (selectedCategory != null && !categories.contains(selectedCategory)) {
+      selectedCategory = null;
+    }
+
+    bool includeCompleted = _settings.showCompleted;
+    bool? onlyCompleted;
+    if (filter == TaskFilter.pending) {
+      includeCompleted = false;
+      onlyCompleted = false;
+    } else if (filter == TaskFilter.completed) {
+      includeCompleted = true;
+      onlyCompleted = true;
+    }
+
     tasks = await _repo.list(
-      includeCompleted: _settings.showCompleted,
+      includeCompleted: includeCompleted,
+      onlyCompleted: onlyCompleted,
+      category: selectedCategory,
       query: query,
     );
     notifyListeners();
@@ -25,6 +47,16 @@ class TaskController extends ChangeNotifier {
 
   Future<void> setQuery(String q) async {
     query = q;
+    await refresh();
+  }
+
+  Future<void> setSelectedCategory(String? category) async {
+    selectedCategory = category;
+    await refresh();
+  }
+
+  Future<void> setFilter(TaskFilter f) async {
+    filter = f;
     await refresh();
   }
 

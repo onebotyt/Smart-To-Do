@@ -38,12 +38,73 @@ class TasksPage extends StatelessWidget {
           ),
         ),
       ),
-      body: c.tasks.isEmpty
-          ? const Center(child: Text('No tasks yet. Tap + to add one.'))
-          : ListView.builder(
-              itemCount: c.tasks.length,
-              itemBuilder: (context, i) => _TaskTile(task: c.tasks[i]),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: SegmentedButton<TaskFilter>(
+              segments: const [
+                ButtonSegment(
+                  value: TaskFilter.all,
+                  label: Text('All'),
+                  icon: Icon(Icons.list),
+                ),
+                ButtonSegment(
+                  value: TaskFilter.pending,
+                  label: Text('Pending'),
+                  icon: Icon(Icons.pending_actions),
+                ),
+                ButtonSegment(
+                  value: TaskFilter.completed,
+                  label: Text('Completed'),
+                  icon: Icon(Icons.task_alt),
+                ),
+              ],
+              selected: {c.filter},
+              onSelectionChanged: (selected) => c.setFilter(selected.first),
             ),
+          ),
+          if (c.categories.isNotEmpty)
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Row(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: ChoiceChip(
+                      label: const Text('All Categories'),
+                      selected: c.selectedCategory == null,
+                      onSelected: (selected) {
+                        if (selected) c.setSelectedCategory(null);
+                      },
+                    ),
+                  ),
+                  ...c.categories.map((cat) => Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ChoiceChip(
+                          label: Text(cat),
+                          selected: c.selectedCategory == cat,
+                          onSelected: (selected) {
+                            c.setSelectedCategory(selected ? cat : null);
+                          },
+                        ),
+                      )),
+                ],
+              ),
+            ),
+          const Divider(height: 1),
+          Expanded(
+            child: c.tasks.isEmpty
+                ? const Center(child: Text('No tasks found. Tap + to add one.'))
+                : ListView.builder(
+                    itemCount: c.tasks.length,
+                    itemBuilder: (context, i) => _TaskTile(task: c.tasks[i]),
+                  ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.push(context,
             MaterialPageRoute(builder: (_) => const TaskEditPage())),

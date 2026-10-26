@@ -14,10 +14,23 @@ class TaskRepository {
 
   int _now() => DateTime.now().toUtc().millisecondsSinceEpoch;
 
-  Future<List<Task>> list({bool includeCompleted = true, String query = ''}) async {
+  Future<List<Task>> list({
+    bool includeCompleted = true,
+    bool? onlyCompleted,
+    String? category,
+    String query = '',
+  }) async {
     final where = <String>['deleted = 0'];
     final args = <Object?>[];
-    if (!includeCompleted) where.add('completed = 0');
+    if (onlyCompleted == true) {
+      where.add('completed = 1');
+    } else if (!includeCompleted || onlyCompleted == false) {
+      where.add('completed = 0');
+    }
+    if (category != null && category.trim().isNotEmpty) {
+      where.add('category = ?');
+      args.add(category.trim());
+    }
     final q = query.trim();
     if (q.isNotEmpty) {
       where.add('(title LIKE ? OR notes LIKE ? OR category LIKE ?)');
@@ -31,6 +44,17 @@ class TaskRepository {
           'completed ASC, priority DESC, due_at IS NULL, due_at ASC, created_at DESC',
     );
     return rows.map(Task.fromMap).toList();
+  }
+
+  Future<List<String>> categories() async {
+    final rows = await _db.query(
+      'tasks',
+      distinct: true,
+      columns: ['category'],
+      where: "deleted = 0 AND category != ''",
+      orderBy: 'category ASC',
+    );
+    return rows.map((r) => r['category'] as String).toList();
   }
 
   Future<Task> create({
