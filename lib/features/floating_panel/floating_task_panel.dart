@@ -170,10 +170,75 @@ class _FloatingTaskPanelState extends State<FloatingTaskPanel> {
                         visualDensity: VisualDensity.compact,
                         onPressed: widget.onExpand,
                       ),
+                    // Options menu (Close Bubble, Open App, Exit)
+                    PopupMenuButton<String>(
+                      tooltip: 'Bubble Options',
+                      icon: const Icon(Icons.more_vert, size: 18),
+                      padding: EdgeInsets.zero,
+                      onSelected: (val) {
+                        if (val == 'open_app') {
+                          if (widget.onExpand != null) {
+                            widget.onExpand!();
+                          } else if (Platform.isWindows) {
+                            PlatformWindowService.setWindowMode(AppWindowMode.normal);
+                          }
+                        } else if (val == 'close_bubble') {
+                          if (Platform.isWindows) {
+                            PlatformWindowService.setWindowMode(AppWindowMode.normal);
+                          } else {
+                            settings?.setFloatingBubbleEnabled(false);
+                            widget.onClose?.call();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Floating bubble hidden. Re-enable anytime in Settings.'),
+                                duration: Duration(seconds: 3),
+                              ),
+                            );
+                          }
+                        } else if (val == 'exit_app') {
+                          PlatformWindowService.exitApp();
+                        }
+                      },
+                      itemBuilder: (ctx) => [
+                        const PopupMenuItem(
+                          value: 'open_app',
+                          child: Row(
+                            children: [
+                              Icon(Icons.open_in_full, size: 18),
+                              SizedBox(width: 8),
+                              Text('Open Full App'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'close_bubble',
+                          child: Row(
+                            children: [
+                              Icon(Icons.visibility_off_outlined, size: 18, color: Colors.orange),
+                              SizedBox(width: 8),
+                              Text('Close Floating Bubble'),
+                            ],
+                          ),
+                        ),
+                        if (Platform.isWindows) ...[
+                          const PopupMenuDivider(),
+                          const PopupMenuItem(
+                            value: 'exit_app',
+                            child: Row(
+                              children: [
+                                Icon(Icons.power_settings_new, size: 18, color: Colors.redAccent),
+                                SizedBox(width: 8),
+                                Text('Exit App', style: TextStyle(color: Colors.redAccent)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                     if (widget.onClose != null)
                       IconButton(
                         icon: const Icon(Icons.close, size: 18),
-                        tooltip: 'Close panel',
+                        tooltip: 'Collapse to bubble',
                         visualDensity: VisualDensity.compact,
                         onPressed: widget.onClose,
                       ),

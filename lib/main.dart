@@ -39,6 +39,17 @@ Future<void> main([List<String> args = const []]) async {
   await clipboardController.init();
   final settings = await SettingsController.load();
 
+  final taskController = TaskController(
+    repo,
+    settings,
+    null,
+    () => syncController.triggerAutoSync(),
+  )..refresh();
+
+  syncController.engine.onTasksReceived = () {
+    taskController.refresh();
+  };
+
   if (!isBubbleArg && Platform.isWindows && settings.isStartInBubbleMode) {
     PlatformWindowService.setWindowMode(AppWindowMode.bubble);
   }
@@ -47,7 +58,7 @@ Future<void> main([List<String> args = const []]) async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: settings),
-        ChangeNotifierProvider(create: (_) => TaskController(repo, settings)..refresh()),
+        ChangeNotifierProvider.value(value: taskController),
         ChangeNotifierProvider.value(value: syncController),
         ChangeNotifierProvider.value(value: clipboardController),
       ],

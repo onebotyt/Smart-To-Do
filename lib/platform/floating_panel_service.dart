@@ -6,6 +6,7 @@ abstract class FloatingPanelService {
   bool get isSupported;
   Future<bool> hasPermission();
   Future<void> requestPermission();
+  Future<void> openAppSettings();
   Future<bool> isVisible();
   Future<void> show();
   Future<void> hide();
@@ -55,6 +56,14 @@ class PlatformFloatingPanelService implements FloatingPanelService {
     if (!isSupported) return;
     try {
       await _channel.invokeMethod('requestOverlayPermission');
+    } catch (_) {}
+  }
+
+  @override
+  Future<void> openAppSettings() async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod('openAppSettings');
     } catch (_) {}
   }
 

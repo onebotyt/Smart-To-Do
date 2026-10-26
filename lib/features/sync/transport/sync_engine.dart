@@ -59,6 +59,9 @@ class SyncEngine {
   /// Callback when verified clipboard text is received from a trusted peer.
   void Function(String text, String senderId)? onClipboardReceived;
 
+  /// Callback when tasks are received and applied from a peer.
+  void Function()? onTasksReceived;
+
   SyncEngine({
     required TaskRepository taskRepo,
     required DeviceRepository deviceRepo,
@@ -257,6 +260,9 @@ class SyncEngine {
               await _taskRepo.applyRemoteTask(remoteTask);
               changesReceivedCount++;
             }
+          }
+          if (changesReceivedCount > 0) {
+            onTasksReceived?.call();
           }
         } else if (msg.type == SyncMessageType.versionVector) {
           // 4. Server sent its version vector; compute client delta for server
@@ -525,6 +531,9 @@ class SyncEngine {
 
     // Mark changes synced
     await _taskRepo.markChangesSynced();
+    if (tasksRaw.isNotEmpty) {
+      onTasksReceived?.call();
+    }
 
     // Send Ack to conclude the transaction
     _sendMsg(socket, SyncMessage.ack(

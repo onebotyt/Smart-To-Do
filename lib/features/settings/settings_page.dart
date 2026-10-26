@@ -165,7 +165,52 @@ class SettingsPage extends StatelessWidget {
                           final service = PlatformFloatingPanelService();
                           final hasPerm = await service.hasPermission();
                           if (!hasPerm && context.mounted) {
-                            await service.requestPermission();
+                            showDialog<void>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                icon: const Icon(Icons.layers_outlined, size: 36, color: Colors.blueAccent),
+                                title: const Text('Overlay Permission Needed'),
+                                content: const Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'To show the floating bubble over other apps, Android requires the "Display over other apps" permission.',
+                                      style: TextStyle(fontSize: 13),
+                                    ),
+                                    SizedBox(height: 12),
+                                    Text(
+                                      '⚠️ If you see "Access denied for this app" (Restricted setting):',
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                    ),
+                                    SizedBox(height: 6),
+                                    Text(
+                                      '1. Tap "Open App Info (Unblock)" below.\n'
+                                      '2. Tap the three dots (⋮) in the top-right corner.\n'
+                                      '3. Tap "Allow restricted settings".\n'
+                                      '4. Then turn on "Allow display over other apps".',
+                                      style: TextStyle(fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () {
+                                      Navigator.pop(ctx);
+                                      service.openAppSettings();
+                                    },
+                                    child: const Text('Open App Info (Unblock)'),
+                                  ),
+                                  FilledButton(
+                                    onPressed: () {
+                                      Navigator.pop(ctx);
+                                      service.requestPermission();
+                                    },
+                                    child: const Text('Open Overlay Settings'),
+                                  ),
+                                ],
+                              ),
+                            );
                           }
                         }
                       },

@@ -37,8 +37,15 @@ class DeviceRepository {
     return Device.fromMap(rows.first);
   }
 
-  /// Insert or update a device.
+  /// Insert or update a device (prevents duplicates with same IP).
   Future<void> save(Device device) async {
+    if (device.ipAddress != null && device.ipAddress!.isNotEmpty) {
+      await _db.delete(
+        'devices',
+        where: 'ip_address = ? AND id != ?',
+        whereArgs: [device.ipAddress, device.id],
+      );
+    }
     await _db.insert(
       'devices',
       device.toMap(),

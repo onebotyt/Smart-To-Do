@@ -8,14 +8,19 @@ import '../settings/settings_controller.dart';
 enum TaskFilter { all, pending, completed }
 
 class TaskController extends ChangeNotifier {
-  TaskController(this._repo, this._settings, [WidgetService? widgetService])
-      : _widgetService = widgetService ?? PlatformWidgetService() {
+  TaskController(
+    this._repo,
+    this._settings, [
+    WidgetService? widgetService,
+    this.onTasksMutated,
+  ])  : _widgetService = widgetService ?? PlatformWidgetService() {
     _settings.addListener(refresh);
   }
 
   final TaskRepository _repo;
   final SettingsController _settings;
   final WidgetService? _widgetService;
+  final VoidCallback? onTasksMutated;
 
   List<Task> tasks = [];
   List<String> categories = [];
@@ -88,6 +93,7 @@ class TaskController extends ChangeNotifier {
       recurrence: recurrence,
     );
     await refresh();
+    onTasksMutated?.call();
   }
 
   /// Alias for add
@@ -111,11 +117,13 @@ class TaskController extends ChangeNotifier {
   Future<void> save(Task t) async {
     await _repo.update(t);
     await refresh();
+    onTasksMutated?.call();
   }
 
   Future<void> toggle(Task t) async {
     await _repo.toggleComplete(t);
     await refresh();
+    onTasksMutated?.call();
   }
 
   /// Alias for toggle
@@ -124,6 +132,7 @@ class TaskController extends ChangeNotifier {
   Future<void> remove(Task t) async {
     await _repo.delete(t.id);
     await refresh();
+    onTasksMutated?.call();
   }
 
   @override

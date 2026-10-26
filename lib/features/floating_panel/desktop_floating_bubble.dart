@@ -63,7 +63,7 @@ class _DesktopFloatingBubbleState extends State<DesktopFloatingBubble>
               _showContextMenu(context, details.globalPosition);
             },
             child: Tooltip(
-              message: 'SyncTask • $pendingCount pending\nClick: open panel • Right-click: options / exit • Drag to move',
+              message: 'SyncTask •  pending\nClick: open panel • Right-click: options / exit • Drag to move',
               waitDuration: const Duration(milliseconds: 350),
               child: AnimatedBuilder(
                 animation: _scaleAnimation,
@@ -102,11 +102,14 @@ class _DesktopFloatingBubbleState extends State<DesktopFloatingBubble>
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      // Center Logo / Checkmark Icon
-                      const Icon(
-                        Icons.check_circle_outline_rounded,
-                        color: Colors.white,
-                        size: 34,
+                      // Center Robot Logo
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Image.asset(
+                          'assets/logo.png',
+                          width: 44,
+                          height: 44,
+                        ),
                       ),
 
                       // Pending tasks badge
@@ -136,52 +139,12 @@ class _DesktopFloatingBubbleState extends State<DesktopFloatingBubble>
                             ),
                             child: Center(
                               child: Text(
-                                pendingCount > 99 ? '99+' : '$pendingCount',
+                                pendingCount > 99 ? '99+' : '',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                   height: 1.0,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-
-                      // Quick close (X) button on hover
-                      if (_isHovered)
-                        Positioned(
-                          top: 4,
-                          left: 4,
-                          child: Listener(
-                            onPointerDown: (_) {
-                              PlatformWindowService.setWindowMode(AppWindowMode.normal);
-                            },
-                            child: MouseRegion(
-                              cursor: SystemMouseCursors.click,
-                              child: Tooltip(
-                                message: 'Close bubble (return to full app)',
-                                child: Container(
-                                  width: 22,
-                                  height: 22,
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withValues(alpha: 0.85),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.white, width: 1.4),
-                                    boxShadow: const [
-                                      BoxShadow(
-                                        color: Colors.black38,
-                                        blurRadius: 3,
-                                      ),
-                                    ],
-                                  ),
-                                  child: const Center(
-                                    child: Icon(
-                                      Icons.close_rounded,
-                                      color: Colors.white,
-                                      size: 14,
-                                    ),
-                                  ),
                                 ),
                               ),
                             ),

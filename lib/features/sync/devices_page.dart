@@ -8,6 +8,7 @@ import 'package:synctask/data/models/device.dart';
 import 'package:synctask/features/sync/discovery/lan_discovery.dart';
 import 'package:synctask/features/sync/qr_scan_page.dart';
 import 'package:synctask/features/sync/sync_controller.dart';
+import 'package:synctask/features/sync/transport/sync_engine.dart';
 import 'package:synctask/features/tasks/task_controller.dart';
 
 class DevicesPage extends StatelessWidget {
@@ -350,12 +351,7 @@ class DevicesPage extends StatelessWidget {
     );
   }
 
-  static List<String>? _cachedIps;
-
   static Future<List<String>> _getLocalIps() async {
-    if (_cachedIps != null && _cachedIps!.isNotEmpty) {
-      return _cachedIps!;
-    }
     final validIps = <String>[];
     try {
       final interfaces = await NetworkInterface.list(
@@ -375,28 +371,23 @@ class DevicesPage extends StatelessWidget {
       }
     } catch (_) {}
 
-    // Sort to prioritize common Wi-Fi / LAN subnets:
-    // 192.168.x.x -> highest priority (home/office Wi-Fi)
-    // 10.x.x.x -> next priority
-    // 172.16-31.x.x -> next
+    // Sort to prioritize common Wi-Fi and Mobile Hotspot subnets:
+    // 192.168.43.x -> Mobile Hotspot (highest priority)
+    // 192.168.137.x -> Windows Mobile Hotspot
+    // 192.168.x.x -> standard local Wi-Fi
+    // 10.x.x.x -> corporate / virtual
     validIps.sort((a, b) {
       int score(String ip) {
+        if (ip.startsWith('192.168.43.')) return -2;
+        if (ip.startsWith('192.168.137.')) return -1;
         if (ip.startsWith('192.168.')) return 0;
         if (ip.startsWith('10.')) return 1;
-        if (ip.startsWith('172.')) {
-          final parts = ip.split('.');
-          if (parts.length > 1) {
-            final second = int.tryParse(parts[1]) ?? 0;
-            if (second >= 16 && second <= 31) return 2;
-          }
-          return 3;
-        }
-        return 4;
+        if (ip.startsWith('172.')) return 2;
+        return 3;
       }
       return score(a).compareTo(score(b));
     });
 
-    _cachedIps = validIps;
     return validIps;
   }
 
@@ -407,10 +398,27 @@ class DevicesPage extends StatelessWidget {
     );
 
     if (result != null && context.mounted) {
-      final ip = result['ip'] as String;
-      final port = result['port'] is int ? result['port'] as int : int.tryParse(result['port'].toString()) ?? 43884;
+      final primaryIp = result['ip'] as String;
+      final port = result['port'] is int
+          ? result['port'] as int
+          : int.tryParse(result['port'].toString()) ?? 43884;
       final pin = result['pin'] as String;
-      final name = result['name'] as String? ?? ip;
+      final name = result['name'] as String? ?? primaryIp;
+
+      // Candidate IPs: primary IP, followed by multi-network candidate IPs, and Hotspot gateways
+      final candidateIps = <String>[primaryIp];
+      if (result['ips'] is List) {
+        for (final candidate in result['ips'] as List) {
+          final s = candidate.toString();
+          if (!candidateIps.contains(s)) {
+            candidateIps.add(s);
+          }
+        }
+      }
+      if (Platform.isAndroid) {
+        if (!candidateIps.contains('192.168.43.1')) candidateIps.add('192.168.43.1');
+        if (!candidateIps.contains('192.168.137.1')) candidateIps.add('192.168.137.1');
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -422,22 +430,30 @@ class DevicesPage extends StatelessWidget {
                 child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
               ),
               const SizedBox(width: 12),
-              Expanded(child: Text('Pairing with $name ($ip:$port)...')),
+              Expanded(child: Text('Pairing with $name...')),
             ],
           ),
-          duration: const Duration(seconds: 12),
+          duration: const Duration(seconds: 15),
         ),
       );
 
-      final res = await sync.pairWithPeer(
-        host: ip,
-        port: port,
-        pin: pin,
-      );
+      PairResult? finalRes;
+      for (final host in candidateIps) {
+        final res = await sync.pairWithPeer(
+          host: host,
+          port: port,
+          pin: pin,
+        );
+        if (res.success) {
+          finalRes = res;
+          break;
+        }
+        finalRes = res;
+      }
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        if (res.success) {
+        if (finalRes != null && finalRes.success) {
           context.read<TaskController>().refresh();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -448,7 +464,7 @@ class DevicesPage extends StatelessWidget {
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Pairing failed: ${res.error ?? "Make sure both devices are on the same Wi-Fi and port $port is open."}'),
+              content: Text('Pairing failed: ${finalRes?.error ?? "Make sure both devices are on the same Wi-Fi or Mobile Hotspot."}'),
               backgroundColor: Colors.redAccent,
               duration: const Duration(seconds: 6),
             ),
@@ -471,7 +487,7 @@ class DevicesPage extends StatelessWidget {
           child: SingleChildScrollView(
             child: FutureBuilder<List<String>>(
               future: _getLocalIps(),
-              initialData: _cachedIps,
+              
               builder: (context, snapshot) {
                 final ips = snapshot.data ?? [];
                 if (snapshot.connectionState == ConnectionState.waiting && ips.isEmpty) {
@@ -768,6 +784,7 @@ class _PairingCodeContentState extends State<_PairingCodeContent> {
     final qrPayload = jsonEncode({
       'type': 'synctask_pair',
       'ip': _selectedIp,
+      'ips': widget.ips,
       'port': widget.port,
       'pin': widget.pin,
       'name': widget.deviceName,

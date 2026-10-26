@@ -20,6 +20,8 @@ class SyncController extends ChangeNotifier {
   String _localDeviceName = '';
 
   StreamSubscription? _discoverySub;
+  Timer? _debounceTimer;
+  Timer? _periodicSyncTimer;
 
   SyncController({
     required TaskRepository taskRepo,
@@ -56,10 +58,24 @@ class SyncController extends ChangeNotifier {
 
     _discoverySub = _discovery.peersStream.listen((peers) {
       _discoveredPeers = peers;
+      for (final p in peers) {
+        final existing = _devices.where((d) => d.id == p.id).firstOrNull;
+        if (existing != null && (existing.ipAddress != p.ipAddress || existing.port != p.port)) {
+          _deviceRepo.updateLastSeen(p.id, ipAddress: p.ipAddress, port: p.port);
+          triggerAutoSync();
+        }
+      }
       notifyListeners();
     });
 
     await refreshDevices();
+
+    // Fast periodic background sync every 8 seconds with paired peers
+    _periodicSyncTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+      if (!_isSyncing && _devices.any((d) => d.trusted && d.ipAddress != null)) {
+        syncAll(silent: true);
+      }
+    });
   }
 
   Future<void> refreshDevices() async {
@@ -133,16 +149,29 @@ class SyncController extends ChangeNotifier {
     }
   }
 
-  Future<void> syncAll() async {
+  void triggerAutoSync() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+      if (!_isSyncing) {
+        syncAll(silent: true);
+      }
+    });
+  }
+
+  Future<void> syncAll({bool silent = false}) async {
     final trusted = _devices.where((d) => d.trusted && d.ipAddress != null).toList();
     if (trusted.isEmpty) {
-      _statusMessage = 'No trusted devices with known IP to sync';
-      notifyListeners();
+      if (!silent) {
+        _statusMessage = 'No trusted devices with known IP to sync';
+        notifyListeners();
+      }
       return;
     }
 
-    _isSyncing = true;
-    notifyListeners();
+    if (!silent) {
+      _isSyncing = true;
+      notifyListeners();
+    }
 
     int totalSent = 0;
     int totalReceived = 0;
@@ -157,8 +186,10 @@ class SyncController extends ChangeNotifier {
       }
     }
 
-    _statusMessage =
-        'Sync completed ($successCount/${trusted.length} peers): $totalSent sent, $totalReceived received';
+    if (!silent || (totalSent > 0 || totalReceived > 0)) {
+      _statusMessage =
+          'Sync completed ($successCount/${trusted.length} peers): $totalSent sent, $totalReceived received';
+    }
     _isSyncing = false;
     await refreshDevices();
   }
@@ -183,6 +214,8 @@ class SyncController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
+    _periodicSyncTimer?.cancel();
     _discoverySub?.cancel();
     _discovery.dispose();
     _engine.dispose();
