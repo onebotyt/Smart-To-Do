@@ -186,3 +186,18 @@ jobs:
             SyncTask-${{ env.VERSION_TAG }}-android-arm64.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout repository to update README
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Update README with Latest Release Version
+        run: |
+          sed -i -E "s/v0\.1\.[0-9]+/${{ env.VERSION_TAG }}/g" README.md || true
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add README.md
+          git diff --staged --quiet || (git commit -m "docs: auto-update README to ${{ env.VERSION_TAG }} [skip ci]" && git push origin main) || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
