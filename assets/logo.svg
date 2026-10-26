@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F172A" />
+      <stop offset="50%" stop-color="#1E1B4B" />
+      <stop offset="100%" stop-color="#0284C7" />
+    </linearGradient>
+
+    <!-- Robot Metallic Body Gradient -->
+    <linearGradient id="robotBody" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="50%" stop-color="#0284C7" />
+      <stop offset="100%" stop-color="#1E40AF" />
+    </linearGradient>
+
+    <!-- Cyan Visor Glow -->
+    <linearGradient id="visorGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#22D3EE" />
+      <stop offset="100%" stop-color="#38BDF8" />
+    </linearGradient>
+
+    <!-- Tablet / Notepad Gradient -->
+    <linearGradient id="tabletGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#E2E8F0" />
+    </linearGradient>
+
+    <!-- Drop Shadow -->
+    <filter id="dropShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.4" />
+    </filter>
+
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Squircle Base -->
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#bgGrad)" />
+
+  <!-- Background Subtle Grid / Accent Circle -->
+  <circle cx="256" cy="256" r="180" fill="none" stroke="#38BDF8" stroke-width="2" stroke-opacity="0.2" stroke-dasharray="8 8" />
+
+  <!-- Robot Character Group -->
+  <g filter="url(#dropShadow)">
+    <!-- Antenna -->
+    <line x1="256" y1="110" x2="256" y2="140" stroke="#38BDF8" stroke-width="8" stroke-linecap="round" />
+    <circle cx="256" cy="100" r="14" fill="#22D3EE" filter="url(#glow)" />
+
+    <!-- Robot Ears / Side Sensors -->
+    <rect x="144" y="180" width="16" height="40" rx="8" fill="#0284C7" />
+    <rect x="352" y="180" width="16" height="40" rx="8" fill="#0284C7" />
+
+    <!-- Robot Head -->
+    <rect x="156" y="136" width="200" height="130" rx="36" fill="url(#robotBody)" stroke="#67E8F9" stroke-width="3" />
+
+    <!-- Visor (Screen) -->
+    <rect x="180" y="166" width="152" height="70" rx="20" fill="#0F172A" stroke="#0284C7" stroke-width="2" />
+    <!-- Visor Glowing Eyes -->
+    <circle cx="222" cy="201" r="14" fill="url(#visorGrad)" filter="url(#glow)" />
+    <circle cx="290" cy="201" r="14" fill="url(#visorGrad)" filter="url(#glow)" />
+    <ellipse cx="226" cy="197" r="4" fill="#FFFFFF" />
+    <ellipse cx="294" cy="197" r="4" fill="#FFFFFF" />
+
+    <!-- Robot Body -->
+    <path d="M 176 276 L 336 276 C 360 276 376 300 370 330 L 350 420 C 344 444 324 460 300 460 L 212 460 C 188 460 168 444 162 420 L 142 330 C 136 300 152 276 176 276 Z" fill="url(#robotBody)" />
+
+    <!-- Digital Notepad / Tablet held in front -->
+    <g transform="translate(196, 260)" filter="url(#dropShadow)">
+      <!-- Tablet Frame -->
+      <rect x="0" y="0" width="160" height="200" rx="20" fill="url(#tabletGrad)" stroke="#CBD5E1" stroke-width="3" />
+      <!-- Tablet Header Clip -->
+      <rect x="45" y="-8" width="70" height="18" rx="9" fill="#0284C7" />
+
+      <!-- Checklist Items -->
+      <!-- Item 1 (Done - Green Check) -->
+      <circle cx="32" cy="46" r="12" fill="#10B981" />
+      <path d="M 26 46 L 30 50 L 38 42" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+      <line x1="54" y1="46" x2="134" y2="46" stroke="#94A3B8" stroke-width="6" stroke-linecap="round" />
+
+      <!-- Item 2 (Done - Cyan Check) -->
+      <circle cx="32" cy="88" r="12" fill="#06B6D4" />
+      <path d="M 26 88 L 30 92 L 38 84" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+      <line x1="54" y1="88" x2="124" y2="88" stroke="#94A3B8" stroke-width="6" stroke-linecap="round" />
+
+      <!-- Item 3 (In progress - Blue Check) -->
+      <circle cx="32" cy="130" r="12" fill="#3B82F6" />
+      <path d="M 26 130 L 30 134 L 38 126" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+      <line x1="54" y1="130" x2="140" y2="130" stroke="#94A3B8" stroke-width="6" stroke-linecap="round" />
+
+      <!-- Item 4 (Pending line) -->
+      <circle cx="32" cy="170" r="11" fill="none" stroke="#CBD5E1" stroke-width="3" />
+      <line x1="54" y1="170" x2="110" y2="170" stroke="#CBD5E1" stroke-width="6" stroke-linecap="round" />
+    </g>
+
+    <!-- Robot Hands Holding Tablet -->
+    <!-- Left Hand -->
+    <ellipse cx="186" cy="360" rx="18" ry="16" fill="#38BDF8" stroke="#0284C7" stroke-width="3" />
+    <!-- Right Hand -->
+    <ellipse cx="366" cy="360" rx="18" ry="16" fill="#38BDF8" stroke="#0284C7" stroke-width="3" />
+  </g>
+</svg>
