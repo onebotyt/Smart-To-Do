@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:synctask/data/models/device.dart';
@@ -11,8 +12,137 @@ import 'package:synctask/features/sync/sync_controller.dart';
 import 'package:synctask/features/sync/transport/sync_engine.dart';
 import 'package:synctask/features/tasks/task_controller.dart';
 
-class DevicesPage extends StatelessWidget {
+enum ConnectionMethodType {
+  qrScan,
+  wifi,
+  mobileHotspot,
+  bluetoothPan,
+  manualIp,
+}
+
+class NetworkInterfaceInfo {
+  final String ip;
+  final String name;
+  final ConnectionMethodType type;
+  final String label;
+  final String description;
+  final IconData icon;
+
+  const NetworkInterfaceInfo({
+    required this.ip,
+    required this.name,
+    required this.type,
+    required this.label,
+    required this.description,
+    required this.icon,
+  });
+}
+
+class DevicesPage extends StatefulWidget {
   const DevicesPage({super.key});
+
+  @override
+  State<DevicesPage> createState() => _DevicesPageState();
+}
+
+class _DevicesPageState extends State<DevicesPage> {
+  List<NetworkInterfaceInfo> _detectedInterfaces = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshNetworkInterfaces();
+  }
+
+  Future<void> _refreshNetworkInterfaces() async {
+    final interfaces = await _getDetailedNetworkInterfaces();
+    if (mounted) {
+      setState(() {
+        _detectedInterfaces = interfaces;
+      });
+    }
+  }
+
+  static Future<List<NetworkInterfaceInfo>> _getDetailedNetworkInterfaces() async {
+    final list = <NetworkInterfaceInfo>[];
+    try {
+      final interfaces = await NetworkInterface.list(
+        type: InternetAddressType.IPv4,
+        includeLinkLocal: false,
+      );
+      for (final iface in interfaces) {
+        for (final addr in iface.addresses) {
+          final ip = addr.address;
+          if (addr.isLoopback || ip.startsWith('127.') || ip.startsWith('169.254.')) {
+            continue;
+          }
+          final nameLower = iface.name.toLowerCase();
+          ConnectionMethodType type;
+          String label;
+          String desc;
+          IconData icon;
+
+          if (ip.startsWith('192.168.43.') ||
+              nameLower.contains('ap0') ||
+              nameLower.contains('softap') ||
+              nameLower.contains('hotspot')) {
+            type = ConnectionMethodType.mobileHotspot;
+            label = 'Android Hotspot';
+            desc = 'Direct peer-to-peer connection';
+            icon = Icons.wifi_tethering;
+          } else if (ip.startsWith('192.168.137.') ||
+              nameLower.contains('local area connection*')) {
+            type = ConnectionMethodType.mobileHotspot;
+            label = 'Windows Hotspot';
+            desc = 'Direct peer-to-peer connection';
+            icon = Icons.wifi_tethering;
+          } else if (ip.startsWith('192.168.44.') ||
+              nameLower.contains('bt') ||
+              nameLower.contains('bluetooth') ||
+              nameLower.contains('pan')) {
+            type = ConnectionMethodType.bluetoothPan;
+            label = 'Bluetooth Link / PAN';
+            desc = 'Direct Bluetooth tethering';
+            icon = Icons.bluetooth;
+          } else if (nameLower.contains('eth')) {
+            type = ConnectionMethodType.wifi;
+            label = 'Ethernet LAN';
+            desc = 'Wired local network';
+            icon = Icons.cable;
+          } else {
+            type = ConnectionMethodType.wifi;
+            label = 'Local Wi-Fi';
+            desc = 'Home / Office Wi-Fi router';
+            icon = Icons.wifi;
+          }
+
+          list.add(NetworkInterfaceInfo(
+            ip: ip,
+            name: iface.name,
+            type: type,
+            label: label,
+            description: desc,
+            icon: icon,
+          ));
+        }
+      }
+    } catch (_) {}
+
+    // Sort: Mobile Hotspot, Windows Hotspot, Local Wi-Fi, Bluetooth, others
+    list.sort((a, b) {
+      int score(NetworkInterfaceInfo item) {
+        if (item.ip.startsWith('192.168.43.')) return 0;
+        if (item.ip.startsWith('192.168.137.')) return 1;
+        if (item.ip.startsWith('192.168.44.')) return 2;
+        if (item.ip.startsWith('192.168.')) return 3;
+        if (item.ip.startsWith('10.')) return 4;
+        return 5;
+      }
+      return score(a).compareTo(score(b));
+    });
+
+    return list;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,6 +152,19 @@ class DevicesPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Devices & Sync'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh Networks & Discovery',
+            onPressed: () {
+              _refreshNetworkInterfaces();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Scanning for nearby devices & networks...'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            },
+          ),
           if (sync.isSyncing)
             const Center(
               child: Padding(
@@ -51,7 +194,7 @@ class DevicesPage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Local Device Info Card
+          // 1. Local Device Info Card
           _buildLocalDeviceCard(context, sync),
           const SizedBox(height: 16),
 
@@ -82,7 +225,9 @@ class DevicesPage extends StatelessWidget {
               ),
             ),
 
-          // Discovered on Wi-Fi Section
+
+
+          // 3. Discovered on Wi-Fi Section
           if (sync.discoveredPeers.isNotEmpty) ...[
             Text(
               'Discovered on Local Wi-Fi',
@@ -98,7 +243,7 @@ class DevicesPage extends StatelessWidget {
             const SizedBox(height: 16),
           ],
 
-          // Paired Devices Header
+          // 4. Paired Devices Header
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -121,7 +266,11 @@ class DevicesPage extends StatelessWidget {
                   TextButton.icon(
                     icon: const Icon(Icons.add, size: 18),
                     label: const Text('Pair Manually'),
-                    onPressed: () => _showPairDialog(context, sync),
+                    onPressed: () => _showConnectionHubDialog(
+                      context,
+                      sync,
+                      initialMethod: ConnectionMethodType.manualIp,
+                    ),
                   ),
                 ],
               ),
@@ -145,7 +294,7 @@ class DevicesPage extends StatelessWidget {
                     ),
                     SizedBox(height: 6),
                     Text(
-                      'Connect another phone or PC on the same Wi-Fi network to enable direct peer-to-peer sync.',
+                      'Connect another phone or PC via Wi-Fi, Mobile Hotspot, or Bluetooth to enable direct peer-to-peer sync.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.grey),
                     ),
@@ -157,6 +306,10 @@ class DevicesPage extends StatelessWidget {
             ...sync.devices.map(
               (device) => _buildDeviceTile(context, sync, device),
             ),
+          const SizedBox(height: 16),
+
+          // Connection Methods Hub (All Different Methods)
+          _buildConnectionMethodsSection(context, sync),
         ],
       ),
     );
@@ -190,7 +343,7 @@ class DevicesPage extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        'Device ID: ${sync.localDeviceId.substring(0, 8)}...',
+                        'Device ID: ${sync.localDeviceId.length > 8 ? sync.localDeviceId.substring(0, 8) : sync.localDeviceId}...',
                         style: TextStyle(
                           fontSize: 12,
                           color: Theme.of(context).colorScheme.outline,
@@ -226,6 +379,168 @@ class DevicesPage extends StatelessWidget {
                 ),
               ],
             ),
+            if (_detectedInterfaces.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: _detectedInterfaces.map((iface) {
+                  return Chip(
+                    avatar: Icon(iface.icon, size: 14),
+                    label: Text('${iface.label}: ${iface.ip}', style: const TextStyle(fontSize: 11)),
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                  );
+                }).toList(),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConnectionMethodsSection(BuildContext context, SyncController sync) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Connection Methods',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              'Choose how to connect',
+              style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+          childAspectRatio: 2.2,
+          children: [
+            _buildMethodCard(
+              context: context,
+              icon: Icons.qr_code_scanner,
+              iconColor: Colors.deepPurple,
+              title: 'Scan QR Code',
+              subtitle: 'Multi-network auto-pair',
+              onTap: () {
+                if (Platform.isAndroid || Platform.isIOS) {
+                  _openQrScanner(context, sync);
+                } else {
+                  _showConnectionHubDialog(
+                    context,
+                    sync,
+                    initialMethod: ConnectionMethodType.qrScan,
+                  );
+                }
+              },
+            ),
+            _buildMethodCard(
+              context: context,
+              icon: Icons.wifi,
+              iconColor: Colors.blue,
+              title: 'Local Wi-Fi',
+              subtitle: 'Same router auto-discovery',
+              onTap: () => _showConnectionHubDialog(
+                context,
+                sync,
+                initialMethod: ConnectionMethodType.wifi,
+              ),
+            ),
+            _buildMethodCard(
+              context: context,
+              icon: Icons.wifi_tethering,
+              iconColor: Colors.teal,
+              title: 'Mobile Hotspot',
+              subtitle: 'Direct Phone ⇄ PC (No router)',
+              onTap: () => _showConnectionHubDialog(
+                context,
+                sync,
+                initialMethod: ConnectionMethodType.mobileHotspot,
+              ),
+            ),
+            _buildMethodCard(
+              context: context,
+              icon: Icons.bluetooth,
+              iconColor: Colors.indigo,
+              title: 'Bluetooth Link',
+              subtitle: 'Direct Bluetooth PAN sync',
+              onTap: () => _showConnectionHubDialog(
+                context,
+                sync,
+                initialMethod: ConnectionMethodType.bluetoothPan,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMethodCard({
+    required BuildContext context,
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: iconColor.withValues(alpha: 0.15),
+              child: Icon(icon, color: iconColor, size: 20),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 10, color: theme.colorScheme.outline),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -252,9 +567,10 @@ class DevicesPage extends StatelessWidget {
                 padding: EdgeInsets.zero,
               )
             : FilledButton.tonal(
-                onPressed: () => _showPairDialog(
+                onPressed: () => _showConnectionHubDialog(
                   context,
                   sync,
+                  initialMethod: ConnectionMethodType.wifi,
                   presetIp: peer.ipAddress,
                   presetPort: peer.port,
                 ),
@@ -351,46 +667,6 @@ class DevicesPage extends StatelessWidget {
     );
   }
 
-  static Future<List<String>> _getLocalIps() async {
-    final validIps = <String>[];
-    try {
-      final interfaces = await NetworkInterface.list(
-        type: InternetAddressType.IPv4,
-        includeLinkLocal: false,
-      );
-      for (final interface in interfaces) {
-        for (final addr in interface.addresses) {
-          final ip = addr.address;
-          if (addr.isLoopback || ip.startsWith('127.') || ip.startsWith('169.254.')) {
-            continue;
-          }
-          if (!validIps.contains(ip)) {
-            validIps.add(ip);
-          }
-        }
-      }
-    } catch (_) {}
-
-    // Sort to prioritize common Wi-Fi and Mobile Hotspot subnets:
-    // 192.168.43.x -> Mobile Hotspot (highest priority)
-    // 192.168.137.x -> Windows Mobile Hotspot
-    // 192.168.x.x -> standard local Wi-Fi
-    // 10.x.x.x -> corporate / virtual
-    validIps.sort((a, b) {
-      int score(String ip) {
-        if (ip.startsWith('192.168.43.')) return -2;
-        if (ip.startsWith('192.168.137.')) return -1;
-        if (ip.startsWith('192.168.')) return 0;
-        if (ip.startsWith('10.')) return 1;
-        if (ip.startsWith('172.')) return 2;
-        return 3;
-      }
-      return score(a).compareTo(score(b));
-    });
-
-    return validIps;
-  }
-
   Future<void> _openQrScanner(BuildContext context, SyncController sync) async {
     final result = await Navigator.push<Map<String, dynamic>>(
       context,
@@ -405,7 +681,7 @@ class DevicesPage extends StatelessWidget {
       final pin = result['pin'] as String;
       final name = result['name'] as String? ?? primaryIp;
 
-      // Candidate IPs: primary IP, followed by multi-network candidate IPs, and Hotspot gateways
+      // Candidate IPs: primary IP, followed by multi-network candidate IPs, and Hotspot/Bluetooth gateways
       final candidateIps = <String>[primaryIp];
       if (result['ips'] is List) {
         for (final candidate in result['ips'] as List) {
@@ -415,10 +691,9 @@ class DevicesPage extends StatelessWidget {
           }
         }
       }
-      if (Platform.isAndroid) {
-        if (!candidateIps.contains('192.168.43.1')) candidateIps.add('192.168.43.1');
-        if (!candidateIps.contains('192.168.137.1')) candidateIps.add('192.168.137.1');
-      }
+      if (!candidateIps.contains('192.168.43.1')) candidateIps.add('192.168.43.1');
+      if (!candidateIps.contains('192.168.137.1')) candidateIps.add('192.168.137.1');
+      if (!candidateIps.contains('192.168.44.1')) candidateIps.add('192.168.44.1');
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -430,7 +705,7 @@ class DevicesPage extends StatelessWidget {
                 child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
               ),
               const SizedBox(width: 12),
-              Expanded(child: Text('Pairing with $name...')),
+              Expanded(child: Text('Pairing with $name (testing networks)...')),
             ],
           ),
           duration: const Duration(seconds: 15),
@@ -438,14 +713,18 @@ class DevicesPage extends StatelessWidget {
       );
 
       PairResult? finalRes;
+      String? connectedHost;
+
       for (final host in candidateIps) {
         final res = await sync.pairWithPeer(
           host: host,
           port: port,
           pin: pin,
+          timeout: const Duration(milliseconds: 3200),
         );
         if (res.success) {
           finalRes = res;
+          connectedHost = host;
           break;
         }
         finalRes = res;
@@ -457,14 +736,14 @@ class DevicesPage extends StatelessWidget {
           context.read<TaskController>().refresh();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Successfully paired with $name!'),
+              content: Text('Successfully paired with $name via $connectedHost!'),
               backgroundColor: Colors.green,
             ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Pairing failed: ${finalRes?.error ?? "Make sure both devices are on the same Wi-Fi or Mobile Hotspot."}'),
+              content: Text('Pairing failed: ${finalRes?.error ?? "Make sure both devices are on the same Wi-Fi, Mobile Hotspot, or Bluetooth."}'),
               backgroundColor: Colors.redAccent,
               duration: const Duration(seconds: 6),
             ),
@@ -483,26 +762,25 @@ class DevicesPage extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         title: const Text('Pairing Confirmation Code'),
         content: SizedBox(
-          width: 290,
+          width: 310,
           child: SingleChildScrollView(
-            child: FutureBuilder<List<String>>(
-              future: _getLocalIps(),
-              
+            child: FutureBuilder<List<NetworkInterfaceInfo>>(
+              future: _getDetailedNetworkInterfaces(),
               builder: (context, snapshot) {
-                final ips = snapshot.data ?? [];
-                if (snapshot.connectionState == ConnectionState.waiting && ips.isEmpty) {
+                final interfaces = snapshot.data ?? [];
+                if (snapshot.connectionState == ConnectionState.waiting && interfaces.isEmpty) {
                   return const Padding(
                     padding: EdgeInsets.symmetric(vertical: 36),
                     child: Center(
                       child: Text(
-                        'Detecting local Wi-Fi address...',
+                        'Detecting local network interfaces...',
                         style: TextStyle(fontSize: 13, color: Colors.grey),
                       ),
                     ),
                   );
                 }
 
-                if (ips.isEmpty) {
+                if (interfaces.isEmpty) {
                   return Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -514,7 +792,7 @@ class DevicesPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'Please connect this device to your local Wi-Fi network to enable direct sync with your other devices.',
+                        'Please connect this device to your local Wi-Fi network or enable Mobile Hotspot to sync with your other devices.',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 12, color: Colors.grey),
                       ),
@@ -539,7 +817,7 @@ class DevicesPage extends StatelessWidget {
                 }
 
                 return _PairingCodeContent(
-                  ips: ips,
+                  interfaces: interfaces,
                   port: port,
                   pin: pin,
                   deviceName: sync.localDeviceName,
@@ -562,159 +840,24 @@ class DevicesPage extends StatelessWidget {
     );
   }
 
-  Future<void> _showPairDialog(
+  void _showConnectionHubDialog(
     BuildContext context,
     SyncController sync, {
+    ConnectionMethodType initialMethod = ConnectionMethodType.wifi,
     String? presetIp,
     int? presetPort,
-  }) async {
-    String defaultIp = presetIp ?? '';
-    if (defaultIp.isEmpty) {
-      final ips = await _getLocalIps();
-      if (ips.isNotEmpty) {
-        final parts = ips.first.split('.');
-        if (parts.length == 4) {
-          defaultIp = '${parts[0]}.${parts[1]}.${parts[2]}.';
-        }
-      }
-    }
-    if (!context.mounted) return;
-
-    final ipController = TextEditingController(text: defaultIp);
-    final portController = TextEditingController(text: (presetPort ?? (sync.engine.actualPort ?? 43884)).toString());
-    final pinController = TextEditingController();
-
+  }) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Pair New Device'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (Platform.isAndroid || Platform.isIOS) ...[
-                FilledButton.icon(
-                  icon: const Icon(Icons.qr_code_scanner),
-                  label: const Text('Scan QR Code with Camera'),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(42),
-                  ),
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    _openQrScanner(context, sync);
-                  },
-                ),
-                const SizedBox(height: 12),
-                const Row(
-                  children: [
-                    Expanded(child: Divider()),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8),
-                      child: Text('OR ENTER MANUALLY', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                    ),
-                    Expanded(child: Divider()),
-                  ],
-                ),
-                const SizedBox(height: 12),
-              ],
-              TextField(
-                controller: ipController,
-                decoration: const InputDecoration(
-                  labelText: 'Peer IP Address',
-                  hintText: 'e.g. 192.168.1.100',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: portController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Port',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: pinController,
-                keyboardType: TextInputType.number,
-                maxLength: 6,
-                decoration: const InputDecoration(
-                  labelText: '6-digit Pairing Code',
-                  hintText: 'Code shown on other device',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              final ip = ipController.text.trim();
-              final port = int.tryParse(portController.text.trim()) ?? 43884;
-              final pin = pinController.text.trim();
-
-              if (ip.isEmpty || pin.length != 6) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please enter valid IP and 6-digit PIN')),
-                );
-                return;
-              }
-
-              Navigator.pop(ctx);
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Row(
-                    children: [
-                      const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(child: Text('Connecting to $ip:$port...')),
-                    ],
-                  ),
-                  duration: const Duration(seconds: 12),
-                ),
-              );
-
-              final res = await sync.pairWithPeer(
-                host: ip,
-                port: port,
-                pin: pin,
-              );
-
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                if (res.success) {
-                  context.read<TaskController>().refresh();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Successfully paired with ${res.device?.name}!'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Pairing failed: ${res.error ?? "Make sure both devices are on the same Wi-Fi."}'),
-                      backgroundColor: Colors.redAccent,
-                      duration: const Duration(seconds: 6),
-                    ),
-                  );
-                }
-              }
-            },
-            child: const Text('Connect & Pair'),
-          ),
-        ],
+      builder: (ctx) => _ConnectionHubDialog(
+        sync: sync,
+        initialMethod: initialMethod,
+        presetIp: presetIp,
+        presetPort: presetPort,
+        onScanQrPressed: () {
+          Navigator.pop(ctx);
+          _openQrScanner(context, sync);
+        },
       ),
     );
   }
@@ -751,15 +894,441 @@ class DevicesPage extends StatelessWidget {
   }
 }
 
+class _ConnectionHubDialog extends StatefulWidget {
+  final SyncController sync;
+  final ConnectionMethodType initialMethod;
+  final String? presetIp;
+  final int? presetPort;
+  final VoidCallback onScanQrPressed;
+
+  const _ConnectionHubDialog({
+    required this.sync,
+    required this.initialMethod,
+    this.presetIp,
+    this.presetPort,
+    required this.onScanQrPressed,
+  });
+
+  @override
+  State<_ConnectionHubDialog> createState() => _ConnectionHubDialogState();
+}
+
+class _ConnectionHubDialogState extends State<_ConnectionHubDialog> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  final TextEditingController _ipController = TextEditingController();
+  final TextEditingController _portController = TextEditingController();
+  final TextEditingController _pinController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    int initialIndex = 0;
+    switch (widget.initialMethod) {
+      case ConnectionMethodType.qrScan:
+        initialIndex = 0;
+        break;
+      case ConnectionMethodType.wifi:
+        initialIndex = 1;
+        break;
+      case ConnectionMethodType.mobileHotspot:
+        initialIndex = 2;
+        break;
+      case ConnectionMethodType.bluetoothPan:
+        initialIndex = 3;
+        break;
+      case ConnectionMethodType.manualIp:
+        initialIndex = 4;
+        break;
+    }
+
+    _tabController = TabController(length: 5, vsync: this, initialIndex: initialIndex);
+    _ipController.text = widget.presetIp ?? '';
+    _portController.text = (widget.presetPort ?? (widget.sync.engine.actualPort ?? 43884)).toString();
+
+    if (_ipController.text.isEmpty && widget.initialMethod == ConnectionMethodType.mobileHotspot) {
+      _ipController.text = '192.168.43.1';
+    } else if (_ipController.text.isEmpty && widget.initialMethod == ConnectionMethodType.bluetoothPan) {
+      _ipController.text = '192.168.44.1';
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _ipController.dispose();
+    _portController.dispose();
+    _pinController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _attemptConnect() async {
+    final ip = _ipController.text.trim();
+    final port = int.tryParse(_portController.text.trim()) ?? 43884;
+    final pin = _pinController.text.trim();
+
+    if (ip.isEmpty || pin.length != 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid IP address and 6-digit confirmation code')),
+      );
+      return;
+    }
+
+    Navigator.pop(context);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Text('Connecting to $ip:$port...')),
+          ],
+        ),
+        duration: const Duration(seconds: 12),
+      ),
+    );
+
+    final res = await widget.sync.pairWithPeer(
+      host: ip,
+      port: port,
+      pin: pin,
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      if (res.success) {
+        context.read<TaskController>().refresh();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Successfully paired with ${res.device?.name}!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Pairing failed: ${res.error ?? "Make sure both devices are on the same network or hotspot."}'),
+            backgroundColor: Colors.redAccent,
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Pair & Connect Device'),
+      contentPadding: const EdgeInsets.only(top: 16, left: 16, right: 16),
+      content: SizedBox(
+        width: 380,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TabBar(
+              controller: _tabController,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              labelPadding: const EdgeInsets.symmetric(horizontal: 10),
+              tabs: const [
+                Tab(icon: Icon(Icons.qr_code_scanner, size: 18), text: 'QR Scan'),
+                Tab(icon: Icon(Icons.wifi, size: 18), text: 'Local Wi-Fi'),
+                Tab(icon: Icon(Icons.wifi_tethering, size: 18), text: 'Hotspot'),
+                Tab(icon: Icon(Icons.bluetooth, size: 18), text: 'Bluetooth'),
+                Tab(icon: Icon(Icons.settings_ethernet, size: 18), text: 'Manual IP'),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 320,
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  // Tab 1: QR Scan
+                  _buildQrScanTab(),
+                  // Tab 2: Local Wi-Fi
+                  _buildWifiTab(),
+                  // Tab 3: Mobile Hotspot
+                  _buildHotspotTab(),
+                  // Tab 4: Bluetooth
+                  _buildBluetoothTab(),
+                  // Tab 5: Manual IP
+                  _buildManualIpTab(),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _attemptConnect,
+          child: const Text('Connect & Pair'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQrScanTab() {
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          const Icon(Icons.qr_code_scanner, size: 48, color: Colors.deepPurple),
+          const SizedBox(height: 12),
+          const Text(
+            'Instant Multi-Network Pairing',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Point camera at the QR code displayed on the other device screen. SyncTask automatically tests all Wi-Fi, Hotspot, and Bluetooth connections.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+          const SizedBox(height: 18),
+          if (Platform.isAndroid || Platform.isIOS)
+            FilledButton.icon(
+              icon: const Icon(Icons.camera_alt),
+              label: const Text('Open QR Scanner Camera'),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(42),
+              ),
+              onPressed: widget.onScanQrPressed,
+            )
+          else
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                'Desktop Camera tip: Open SyncTask on your Android phone, tap "Scan QR" and point at the QR code on this PC screen (click "Show Pairing Code" on main screen).',
+                style: TextStyle(fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWifiTab() {
+    final peers = widget.sync.discoveredPeers;
+
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Connect via Local Wi-Fi Router',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Both devices must be connected to the same Wi-Fi router or office LAN.',
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+          const SizedBox(height: 12),
+          if (peers.isNotEmpty) ...[
+            const Text(
+              'Discovered Nearby Devices:',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue),
+            ),
+            const SizedBox(height: 6),
+            ...peers.map((p) => ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.wifi_tethering, color: Colors.blue),
+                  title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text('${p.ipAddress}:${p.port}'),
+                  trailing: TextButton(
+                    onPressed: () {
+                      _ipController.text = p.ipAddress;
+                      _portController.text = p.port.toString();
+                    },
+                    child: const Text('Use IP'),
+                  ),
+                )),
+          ],
+          const SizedBox(height: 8),
+          _buildInputFields(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHotspotTab() {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Mobile Hotspot (No Wi-Fi Router Needed)',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Connect directly device-to-device. Turn on Hotspot on one device and connect the other device to it.',
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+          const SizedBox(height: 10),
+          const Text('Quick Presets:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              ActionChip(
+                avatar: const Icon(Icons.phone_android, size: 14),
+                label: const Text('Android Hotspot (192.168.43.1)', style: TextStyle(fontSize: 11)),
+                onPressed: () => _ipController.text = '192.168.43.1',
+              ),
+              ActionChip(
+                avatar: const Icon(Icons.laptop, size: 14),
+                label: const Text('Windows Hotspot (192.168.137.1)', style: TextStyle(fontSize: 11)),
+                onPressed: () => _ipController.text = '192.168.137.1',
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _buildInputFields(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBluetoothTab() {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Bluetooth Tethering (PAN)',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Sync directly over Bluetooth even when Wi-Fi is disconnected or blocked by router isolation.',
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: const Text(
+              '1. Pair Android & PC via Bluetooth Settings.\n'
+              '2. Android: Enable "Bluetooth tethering" in Hotspot settings.\n'
+              '3. Windows: Join Personal Area Network (PAN) -> Connect as Access point.\n'
+              '4. Default Bluetooth gateway is usually 192.168.44.1.',
+              style: TextStyle(fontSize: 11),
+            ),
+          ),
+          const SizedBox(height: 8),
+          ActionChip(
+            avatar: const Icon(Icons.bluetooth, size: 14),
+            label: const Text('Bluetooth Link Gateway (192.168.44.1)', style: TextStyle(fontSize: 11)),
+            onPressed: () => _ipController.text = '192.168.44.1',
+          ),
+          const SizedBox(height: 8),
+          _buildInputFields(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildManualIpTab() {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Direct Manual IP & Port',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Enter target IP address for custom LAN subnets, static IPs, or VPNs (Tailscale, WireGuard).',
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+          const SizedBox(height: 12),
+          _buildInputFields(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInputFields() {
+    return Column(
+      children: [
+        TextField(
+          controller: _ipController,
+          decoration: const InputDecoration(
+            labelText: 'Target IP Address',
+            hintText: 'e.g. 192.168.1.100',
+            isDense: true,
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: TextField(
+                controller: _portController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Port',
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 3,
+              child: TextField(
+                controller: _pinController,
+                keyboardType: TextInputType.number,
+                maxLength: 6,
+                decoration: const InputDecoration(
+                  labelText: '6-digit PIN',
+                  hintText: 'PIN from peer',
+                  isDense: true,
+                  counterText: '',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 class _PairingCodeContent extends StatefulWidget {
-  final List<String> ips;
+  final List<NetworkInterfaceInfo> interfaces;
   final int port;
   final String pin;
   final String deviceName;
   final String deviceId;
 
   const _PairingCodeContent({
-    required this.ips,
+    required this.interfaces,
     required this.port,
     required this.pin,
     required this.deviceName,
@@ -771,20 +1340,22 @@ class _PairingCodeContent extends StatefulWidget {
 }
 
 class _PairingCodeContentState extends State<_PairingCodeContent> {
-  late String _selectedIp;
+  late NetworkInterfaceInfo _selectedInterface;
 
   @override
   void initState() {
     super.initState();
-    _selectedIp = widget.ips.first;
+    _selectedInterface = widget.interfaces.first;
   }
 
   @override
   Widget build(BuildContext context) {
+    final allIps = widget.interfaces.map((i) => i.ip).toList();
+
     final qrPayload = jsonEncode({
       'type': 'synctask_pair',
-      'ip': _selectedIp,
-      'ips': widget.ips,
+      'ip': _selectedInterface.ip,
+      'ips': allIps,
       'port': widget.port,
       'pin': widget.pin,
       'name': widget.deviceName,
@@ -799,7 +1370,7 @@ class _PairingCodeContentState extends State<_PairingCodeContent> {
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 13),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
@@ -823,60 +1394,80 @@ class _PairingCodeContentState extends State<_PairingCodeContent> {
             ),
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         const Text(
           'Or enter this 6-digit PIN manually:',
           style: TextStyle(fontSize: 12, color: Colors.grey),
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Text(
-            widget.pin,
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 6,
+        const SizedBox(height: 6),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                widget.pin,
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 6,
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.copy, size: 20),
+              tooltip: 'Copy PIN',
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: widget.pin));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('PIN copied to clipboard'), duration: Duration(seconds: 2)),
+                );
+              },
+            ),
+          ],
         ),
         const SizedBox(height: 10),
-        if (widget.ips.length > 1) ...[
+        if (widget.interfaces.length > 1) ...[
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
-            child: DropdownButton<String>(
+            child: DropdownButton<NetworkInterfaceInfo>(
               isDense: true,
-              value: _selectedIp,
-              items: widget.ips.map((ip) {
+              value: _selectedInterface,
+              items: widget.interfaces.map((iface) {
                 return DropdownMenuItem(
-                  value: ip,
-                  child: Text(
-                    'IP: $ip',
-                    style: const TextStyle(fontSize: 12),
+                  value: iface,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(iface.icon, size: 14),
+                      const SizedBox(width: 6),
+                      Text('${iface.label}: ${iface.ip}', style: const TextStyle(fontSize: 11)),
+                    ],
                   ),
                 );
               }).toList(),
               onChanged: (val) {
                 if (val != null) {
-                  setState(() => _selectedIp = val);
+                  setState(() => _selectedInterface = val);
                 }
               },
             ),
           ),
         ] else
           Text(
-            'Device IP: $_selectedIp : ${widget.port}',
+            'Device IP: ${_selectedInterface.ip} : ${widget.port}',
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
           ),
         const SizedBox(height: 4),
         const Text(
-          'Code valid for 5 min • Both devices must be on same Wi-Fi',
+          'Code valid for 5 min • Works over Wi-Fi, Hotspot & Bluetooth',
           style: TextStyle(fontSize: 11, color: Colors.grey),
           textAlign: TextAlign.center,
         ),

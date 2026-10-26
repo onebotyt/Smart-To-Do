@@ -99,6 +99,7 @@ class SyncController extends ChangeNotifier {
     required String host,
     required int port,
     required String pin,
+    Duration timeout = const Duration(seconds: 10),
   }) async {
     _isSyncing = true;
     _statusMessage = 'Pairing with $host...';
@@ -109,6 +110,7 @@ class SyncController extends ChangeNotifier {
         host: host,
         port: port,
         pin: pin,
+        timeout: timeout,
       );
 
       if (res.success) {
@@ -177,8 +179,10 @@ class SyncController extends ChangeNotifier {
     int totalReceived = 0;
     int successCount = 0;
 
-    for (final dev in trusted) {
-      final res = await _engine.syncWithDevice(dev);
+    final results = await Future.wait(
+      trusted.map((dev) => _engine.syncWithDevice(dev)),
+    );
+    for (final res in results) {
       if (res.success) {
         successCount++;
         totalSent += res.changesSent;

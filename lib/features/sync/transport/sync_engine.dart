@@ -118,6 +118,7 @@ class SyncEngine {
     required String host,
     required int port,
     required String pin,
+    Duration timeout = const Duration(seconds: 10),
   }) async {
     Socket? socket;
     try {
@@ -125,7 +126,7 @@ class SyncEngine {
       final localDeviceName = await _deviceRepo.getLocalDeviceName();
       final fingerprint = sha256.convert(utf8.encode('$localDeviceId:$pin')).toString();
 
-      socket = await Socket.connect(host, port, timeout: const Duration(seconds: 12));
+      socket = await Socket.connect(host, port, timeout: timeout);
 
       final requestMsg = SyncMessage.pairRequest(
         senderId: localDeviceId,
@@ -137,7 +138,7 @@ class SyncEngine {
       _sendMsg(socket, requestMsg);
 
       final lineStream = utf8.decoder.bind(socket).transform(const LineSplitter());
-      await for (final line in lineStream.timeout(const Duration(seconds: 12))) {
+      await for (final line in lineStream.timeout(timeout)) {
         if (line.trim().isEmpty) continue;
         final response = SyncMessage.fromJson(line);
 
