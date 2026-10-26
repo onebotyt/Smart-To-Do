@@ -147,7 +147,6 @@ jobs:
           cp synctask-windows-release.zip "SyncTask-${VERSION}-windows.zip"
           cp synctask-windows-release.zip "SyncTask-Windows.zip"
           cp SyncTask-Setup.exe "SyncTask-${VERSION}-windows-setup.exe"
-          cp SyncTask-Setup.exe "SyncTask-Setup.exe"
 
       - name: Create or Update GitHub Release
         uses: softprops/action-gh-release@v2
