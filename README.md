@@ -22,10 +22,11 @@
 
 You don't need to dig through GitHub Actions artifacts. Download the latest builds directly with a single click below:
 
-| Platform | Format | Direct Download Link |
-| :--- | :--- | :--- |
-| 📱 **Android** | `.apk` (All architectures) | [📥 **Download Android APK**](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Android.apk) |
-| 💻 **Windows** | `.zip` (Portable desktop app) | [📥 **Download Windows App (.zip)**](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Windows.zip) |
+| Platform | Architecture / Format | Direct Download Link | Size |
+| :--- | :--- | :--- | :--- |
+| 📱 **Android (Recommended)** | `arm64-v8a` (All modern Android phones) | [📥 **Download Android APK (arm64)**](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Android-arm64.apk) | **~20 MB** |
+| 📱 **Android (Universal)** | Multi-ABI (Works on any Android device) | [📥 **Download Universal APK**](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Android.apk) | ~57 MB |
+| 💻 **Windows** | Portable `.zip` executable package | [📥 **Download Windows Desktop (.zip)**](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Windows.zip) | Portable |
 
 > 💡 *View all release history, release notes, and version archives on the [GitHub Releases Page](https://github.com/onebotyt/Smart-To-Do/releases).*
 

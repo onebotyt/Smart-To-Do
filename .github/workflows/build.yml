@@ -36,14 +36,22 @@ jobs:
       - name: Run unit & widget tests
         run: flutter test
 
-      - name: Build Android Debug APK
-        run: flutter build apk --debug
+      - name: Build Android Release APKs
+        run: |
+          flutter build apk --release
+          flutter build apk --release --split-per-abi
 
-      - name: Upload Android APK
+      - name: Upload Android Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: synctask-android-debug-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          name: synctask-android-release-universal
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Upload Android arm64 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: synctask-android-release-arm64
+          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
 
   build-windows:
     name: Build Windows Application
@@ -89,10 +97,15 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download Android Artifact
+      - name: Download Android Universal APK
         uses: actions/download-artifact@v4
         with:
-          name: synctask-android-debug-apk
+          name: synctask-android-release-universal
+
+      - name: Download Android arm64 APK
+        uses: actions/download-artifact@v4
+        with:
+          name: synctask-android-release-arm64
 
       - name: Download Windows Artifact
         uses: actions/download-artifact@v4
@@ -103,8 +116,10 @@ jobs:
         run: |
           VERSION="v0.1.${{ github.run_number }}"
           echo "VERSION_TAG=$VERSION" >> $GITHUB_ENV
-          cp app-debug.apk "SyncTask-${VERSION}-android.apk"
-          cp app-debug.apk "SyncTask-Android.apk"
+          cp app-release.apk "SyncTask-Android.apk"
+          cp app-release.apk "SyncTask-${VERSION}-android-universal.apk"
+          cp app-arm64-v8a-release.apk "SyncTask-Android-arm64.apk"
+          cp app-arm64-v8a-release.apk "SyncTask-${VERSION}-android-arm64.apk"
           cp synctask-windows-release.zip "SyncTask-${VERSION}-windows.zip"
           cp synctask-windows-release.zip "SyncTask-Windows.zip"
 
@@ -118,19 +133,18 @@ jobs:
           body: |
             ## SyncTask ${{ env.VERSION_TAG }}
             
-            Automated build for SyncTask commit `${{ github.sha }}`.
+            Automated production release generated from commit `${{ github.sha }}`.
 
             ### 🚀 Direct One-Click Downloads
-            - 📱 **Android APK**: [SyncTask-Android.apk](https://github.com/onebotyt/Smart-To-Do/releases/download/${{ env.VERSION_TAG }}/SyncTask-Android.apk)
+            - 📱 **Android (Lightweight ~20MB, for all modern phones)**: [SyncTask-Android-arm64.apk](https://github.com/onebotyt/Smart-To-Do/releases/download/${{ env.VERSION_TAG }}/SyncTask-Android-arm64.apk)
+            - 📱 **Android (Universal, all architectures)**: [SyncTask-Android.apk](https://github.com/onebotyt/Smart-To-Do/releases/download/${{ env.VERSION_TAG }}/SyncTask-Android.apk)
             - 💻 **Windows Application (Zip)**: [SyncTask-Windows.zip](https://github.com/onebotyt/Smart-To-Do/releases/download/${{ env.VERSION_TAG }}/SyncTask-Windows.zip)
-
-            ### Versioned Archives
-            - `SyncTask-${{ env.VERSION_TAG }}-android.apk`
-            - `SyncTask-${{ env.VERSION_TAG }}-windows.zip`
           files: |
             SyncTask-Android.apk
+            SyncTask-Android-arm64.apk
             SyncTask-Windows.zip
-            SyncTask-${{ env.VERSION_TAG }}-android.apk
+            SyncTask-${{ env.VERSION_TAG }}-android-universal.apk
+            SyncTask-${{ env.VERSION_TAG }}-android-arm64.apk
             SyncTask-${{ env.VERSION_TAG }}-windows.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
