@@ -237,12 +237,10 @@ bool FlutterWindow::OnCreate() {
     } else if (call.method_name() == "startDragging") {
       ReleaseCapture();
       SendMessage(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
-      if (current_mode_ == "bubble") {
-        RECT rect;
-        GetWindowRect(hwnd, &rect);
-        bubble_x_ = rect.left;
-        bubble_y_ = rect.top;
-      }
+      RECT rect;
+      GetWindowRect(hwnd, &rect);
+      bubble_x_ = rect.left;
+      bubble_y_ = rect.top;
       result->Success(flutter::EncodableValue(true));
     } else if (call.method_name() == "exitApp") {
       close_to_bubble_ = false;

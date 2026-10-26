@@ -53,11 +53,8 @@ class _DesktopFloatingBubbleState extends State<DesktopFloatingBubble>
           onEnter: (_) => setState(() => _isHovered = true),
           onExit: (_) => setState(() => _isHovered = false),
           child: GestureDetector(
-            onPanUpdate: (details) {
-              PlatformWindowService.moveWindow(
-                details.delta.dx,
-                details.delta.dy,
-              );
+            onPanStart: (_) {
+              PlatformWindowService.startDragging();
             },
             onTap: () {
               PlatformWindowService.setWindowMode(AppWindowMode.panel);

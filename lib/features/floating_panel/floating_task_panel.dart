@@ -93,12 +93,9 @@ class _FloatingTaskPanelState extends State<FloatingTaskPanel> {
             children: [
               // Panel Header (Draggable visual bar)
               GestureDetector(
-                onPanUpdate: (details) {
+                onPanStart: (_) {
                   if (Platform.isWindows) {
-                    PlatformWindowService.moveWindow(
-                      details.delta.dx,
-                      details.delta.dy,
-                    );
+                    PlatformWindowService.startDragging();
                   }
                 },
                 child: Container(
