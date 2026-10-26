@@ -122,7 +122,7 @@ class SyncEngine {
       final localDeviceName = await _deviceRepo.getLocalDeviceName();
       final fingerprint = sha256.convert(utf8.encode('$localDeviceId:$pin')).toString();
 
-      socket = await Socket.connect(host, port, timeout: const Duration(seconds: 5));
+      socket = await Socket.connect(host, port, timeout: const Duration(seconds: 12));
 
       final requestMsg = SyncMessage.pairRequest(
         senderId: localDeviceId,
@@ -134,7 +134,7 @@ class SyncEngine {
       _sendMsg(socket, requestMsg);
 
       final lineStream = utf8.decoder.bind(socket).transform(const LineSplitter());
-      await for (final line in lineStream.timeout(const Duration(seconds: 8))) {
+      await for (final line in lineStream.timeout(const Duration(seconds: 12))) {
         if (line.trim().isEmpty) continue;
         final response = SyncMessage.fromJson(line);
 
@@ -167,6 +167,16 @@ class SyncEngine {
       }
 
       return const PairResult(success: false, error: 'Connection closed without response');
+    } on SocketException catch (e) {
+      return PairResult(
+        success: false,
+        error: 'Cannot connect to $host:$port (${e.message}). Make sure both devices are on the same Wi-Fi and firewall allows port 43884.',
+      );
+    } on TimeoutException {
+      return PairResult(
+        success: false,
+        error: 'Connection to $host:$port timed out. Check your Wi-Fi or firewall settings.',
+      );
     } catch (e) {
       return PairResult(success: false, error: e.toString());
     } finally {

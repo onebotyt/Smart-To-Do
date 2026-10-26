@@ -13,10 +13,54 @@ class FloatingBubbleOverlay extends StatefulWidget {
   State<FloatingBubbleOverlay> createState() => _FloatingBubbleOverlayState();
 }
 
-class _FloatingBubbleOverlayState extends State<FloatingBubbleOverlay> {
-  Offset? _position;
-  Offset? _panelPosition;
+class _FloatingBubbleOverlayState extends State<FloatingBubbleOverlay>
+    with SingleTickerProviderStateMixin {
+  final ValueNotifier<Offset> _bubblePosition = ValueNotifier(Offset.zero);
+  final ValueNotifier<Offset> _panelPosition = ValueNotifier(Offset.zero);
+  bool _initialized = false;
   bool _isExpanded = false;
+
+  late final AnimationController _snapController;
+  Animation<Offset>? _snapAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _snapController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+    )..addListener(() {
+        if (_snapAnimation != null) {
+          _bubblePosition.value = _snapAnimation!.value;
+        }
+      });
+  }
+
+  @override
+  void dispose() {
+    _snapController.dispose();
+    _bubblePosition.dispose();
+    _panelPosition.dispose();
+    super.dispose();
+  }
+
+  void _snapToEdge(Size screenSize) {
+    final cur = _bubblePosition.value;
+    final targetX = cur.dx < (screenSize.width / 2)
+        ? 16.0
+        : (screenSize.width - 72.0);
+    final target = Offset(targetX, cur.dy);
+
+    _snapAnimation = Tween<Offset>(
+      begin: cur,
+      end: target,
+    ).animate(CurvedAnimation(
+      parent: _snapController,
+      curve: Curves.easeOutCubic,
+    ));
+
+    _snapController.forward(from: 0.0);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,44 +76,24 @@ class _FloatingBubbleOverlayState extends State<FloatingBubbleOverlay> {
     final mediaQuery = MediaQuery.of(context);
     final screenSize = mediaQuery.size;
 
-    // Default position: bottom-right corner with margin
-    _position ??= Offset(
-      screenSize.width - 76,
-      screenSize.height - 140,
-    );
-
-    // Keep position within screen bounds
-    final clampedX = _position!.dx.clamp(16.0, screenSize.width - 72.0);
-    final clampedY = _position!.dy.clamp(60.0, screenSize.height - 120.0);
-    final bubbleOffset = Offset(clampedX, clampedY);
+    if (!_initialized) {
+      _bubblePosition.value = Offset(
+        screenSize.width - 72.0,
+        screenSize.height - 150.0,
+      );
+      _initialized = true;
+    }
 
     const panelWidth = 340.0;
     const panelHeight = 480.0;
-
-    // Position panel near the bubble, clamped within screen bounds
-    _panelPosition ??= Offset(
-      (bubbleOffset.dx - panelWidth + 56.0)
-          .clamp(16.0, (screenSize.width - panelWidth - 16.0).clamp(16.0, screenSize.width)),
-      (bubbleOffset.dy - panelHeight + 56.0)
-          .clamp(40.0, (screenSize.height - panelHeight - 20.0).clamp(40.0, screenSize.height)),
-    );
-
-    final clampedPanelX = _panelPosition!.dx.clamp(
-      16.0,
-      (screenSize.width - panelWidth - 16.0).clamp(16.0, screenSize.width),
-    );
-    final clampedPanelY = _panelPosition!.dy.clamp(
-      40.0,
-      (screenSize.height - panelHeight - 20.0).clamp(40.0, screenSize.height),
-    );
-
     final theme = Theme.of(context);
 
     return Stack(
       children: [
+        // Base App (Never rebuilds during touch drags!)
         widget.child,
 
-        // Modal backdrop and expanded Floating Window with smooth spring zoom
+        // Modal backdrop and expanded Floating Window
         if (_isExpanded)
           Positioned.fill(
             child: Stack(
@@ -77,49 +101,53 @@ class _FloatingBubbleOverlayState extends State<FloatingBubbleOverlay> {
                 // Backdrop
                 GestureDetector(
                   onTap: () {
-                    setState(() {
-                      _isExpanded = false;
-                      _panelPosition = null;
-                    });
+                    setState(() => _isExpanded = false);
                   },
-                  child: Container(
-                    color: Colors.black45,
-                  ),
+                  child: Container(color: Colors.black45),
                 ),
 
-                // Draggable FloatingTaskPanel positioned where the bubble is
-                Positioned(
-                  left: clampedPanelX,
-                  top: clampedPanelY,
-                  child: GestureDetector(
-                    onPanUpdate: (details) {
-                      setState(() {
-                        _panelPosition = Offset(
-                          clampedPanelX + details.delta.dx,
-                          clampedPanelY + details.delta.dy,
+                // Draggable FloatingTaskPanel
+                ValueListenableBuilder<Offset>(
+                  valueListenable: _panelPosition,
+                  builder: (context, panelPos, panelChild) {
+                    return Positioned(
+                      left: panelPos.dx,
+                      top: panelPos.dy,
+                      child: panelChild!,
+                    );
+                  },
+                  child: RepaintBoundary(
+                    child: GestureDetector(
+                      onPanUpdate: (details) {
+                        final cur = _panelPosition.value;
+                        final newX = (cur.dx + details.delta.dx).clamp(
+                          12.0,
+                          (screenSize.width - panelWidth - 12.0).clamp(12.0, screenSize.width),
                         );
-                      });
-                    },
-                    child: TweenAnimationBuilder<double>(
-                      tween: Tween(begin: 0.0, end: 1.0),
-                      duration: const Duration(milliseconds: 240),
-                      curve: Curves.easeOutBack,
-                      builder: (context, val, child) {
-                        return Opacity(
-                          opacity: val.clamp(0.0, 1.0),
-                          child: Transform.scale(
-                            scale: 0.85 + (0.15 * val),
-                            child: child,
-                          ),
+                        final newY = (cur.dy + details.delta.dy).clamp(
+                          36.0,
+                          (screenSize.height - panelHeight - 16.0).clamp(36.0, screenSize.height),
                         );
+                        _panelPosition.value = Offset(newX, newY);
                       },
-                      child: FloatingTaskPanel(
-                        onClose: () {
-                          setState(() {
-                            _isExpanded = false;
-                            _panelPosition = null;
-                          });
+                      child: TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0.0, end: 1.0),
+                        duration: const Duration(milliseconds: 240),
+                        curve: Curves.easeOutBack,
+                        builder: (context, val, child) {
+                          return Opacity(
+                            opacity: val.clamp(0.0, 1.0),
+                            child: Transform.scale(
+                              scale: 0.85 + (0.15 * val),
+                              child: child,
+                            ),
+                          );
                         },
+                        child: FloatingTaskPanel(
+                          onClose: () {
+                            setState(() => _isExpanded = false);
+                          },
+                        ),
                       ),
                     ),
                   ),
@@ -128,40 +156,43 @@ class _FloatingBubbleOverlayState extends State<FloatingBubbleOverlay> {
             ),
           ),
 
-        // Collapsed Round Draggable Floating Bubble with spring pop entrance
+        // Collapsed Round Draggable Floating Bubble (Zero-rebuild 60/120fps drag!)
         if (!_isExpanded)
-          Positioned(
-            left: bubbleOffset.dx,
-            top: bubbleOffset.dy,
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0.0, end: 1.0),
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOutBack,
-              builder: (context, val, child) {
-                return Transform.scale(
-                  scale: val,
-                  child: child,
-                );
-              },
+          ValueListenableBuilder<Offset>(
+            valueListenable: _bubblePosition,
+            builder: (context, pos, child) {
+              return Positioned(
+                left: pos.dx,
+                top: pos.dy,
+                child: child!,
+              );
+            },
+            child: RepaintBoundary(
               child: GestureDetector(
+                onPanStart: (_) {
+                  _snapController.stop();
+                },
                 onPanUpdate: (details) {
-                  setState(() {
-                    _position = Offset(
-                      bubbleOffset.dx + details.delta.dx,
-                      bubbleOffset.dy + details.delta.dy,
-                    );
-                  });
+                  final cur = _bubblePosition.value;
+                  final newX = (cur.dx + details.delta.dx).clamp(10.0, screenSize.width - 66.0);
+                  final newY = (cur.dy + details.delta.dy).clamp(40.0, screenSize.height - 110.0);
+                  _bubblePosition.value = Offset(newX, newY);
+                },
+                onPanEnd: (_) {
+                  _snapToEdge(screenSize);
                 },
                 onTap: () {
-                  setState(() {
-                    _panelPosition = Offset(
-                      (bubbleOffset.dx - panelWidth + 56.0)
-                          .clamp(16.0, (screenSize.width - panelWidth - 16.0).clamp(16.0, screenSize.width)),
-                      (bubbleOffset.dy - panelHeight + 56.0)
-                          .clamp(40.0, (screenSize.height - panelHeight - 20.0).clamp(40.0, screenSize.height)),
-                    );
-                    _isExpanded = true;
-                  });
+                  final bubblePos = _bubblePosition.value;
+                  final initialPanelX = (bubblePos.dx - panelWidth + 56.0).clamp(
+                    12.0,
+                    (screenSize.width - panelWidth - 12.0).clamp(12.0, screenSize.width),
+                  );
+                  final initialPanelY = (bubblePos.dy - panelHeight + 56.0).clamp(
+                    36.0,
+                    (screenSize.height - panelHeight - 16.0).clamp(36.0, screenSize.height),
+                  );
+                  _panelPosition.value = Offset(initialPanelX, initialPanelY);
+                  setState(() => _isExpanded = true);
                 },
                 child: Material(
                   elevation: 8,
@@ -184,7 +215,6 @@ class _FloatingBubbleOverlayState extends State<FloatingBubbleOverlay> {
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        // SyncTask Logo inside round bubble
                         ClipRRect(
                           borderRadius: BorderRadius.circular(28),
                           child: Image.asset(
@@ -193,36 +223,29 @@ class _FloatingBubbleOverlayState extends State<FloatingBubbleOverlay> {
                             height: 32,
                           ),
                         ),
-                        // Pending Count Badge with animated count transitions
                         if (pendingCount > 0)
                           Positioned(
                             right: 0,
                             top: 0,
-                            child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 200),
-                              transitionBuilder: (child, anim) =>
-                                  ScaleTransition(scale: anim, child: child),
-                              child: Container(
-                                key: ValueKey(pendingCount),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.redAccent,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 1.5,
                                 ),
-                                decoration: BoxDecoration(
-                                  color: Colors.redAccent,
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: Text(
-                                  pendingCount > 99 ? '99+' : '$pendingCount',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                              ),
+                              child: Text(
+                                pendingCount > 99 ? '99+' : '$pendingCount',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ),

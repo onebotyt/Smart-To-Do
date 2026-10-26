@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/models/task.dart';
+import '../../platform/floating_panel_service.dart';
 import '../../platform/update_service.dart';
 import '../../platform/window_service.dart';
 import '../floating_panel/floating_task_panel.dart';
@@ -28,6 +29,46 @@ class _TasksPageState extends State<TasksPage> {
   void initState() {
     super.initState();
     _checkForUpdates();
+    if (Platform.isAndroid) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkAndroidOverlayPermission();
+      });
+    }
+  }
+
+  Future<void> _checkAndroidOverlayPermission() async {
+    final settings = context.read<SettingsController>();
+    if (!settings.isFloatingBubbleEnabled) return;
+
+    final service = PlatformFloatingPanelService();
+    final hasPerm = await service.hasPermission();
+    if (!hasPerm && mounted) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          icon: const Icon(Icons.bubble_chart, size: 40, color: Colors.indigo),
+          title: const Text('Enable Floating Bubble'),
+          content: const Text(
+            'SyncTask can show a floating quick-access to-do bubble over other apps so you never miss a task.\n\n'
+            'To enable the floating bubble, please grant "Display over other apps" (Appear on top) permission in Android settings.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Not Now'),
+            ),
+            FilledButton.icon(
+              icon: const Icon(Icons.open_in_new, size: 18),
+              label: const Text('Allow Permission'),
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await service.requestPermission();
+              },
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   Future<void> _checkForUpdates() async {
@@ -89,6 +130,13 @@ class _TasksPageState extends State<TasksPage> {
               } else {
                 final next = !settings.isFloatingBubbleEnabled;
                 settings.setFloatingBubbleEnabled(next);
+                if (next && Platform.isAndroid) {
+                  PlatformFloatingPanelService().hasPermission().then((hasPerm) {
+                    if (!hasPerm && context.mounted) {
+                      PlatformFloatingPanelService().requestPermission();
+                    }
+                  });
+                }
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(next

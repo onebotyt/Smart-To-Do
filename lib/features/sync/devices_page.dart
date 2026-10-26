@@ -350,7 +350,13 @@ class DevicesPage extends StatelessWidget {
     );
   }
 
-  static Future<String?> _getLocalIp() async {
+  static List<String>? _cachedIps;
+
+  static Future<List<String>> _getLocalIps() async {
+    if (_cachedIps != null && _cachedIps!.isNotEmpty) {
+      return _cachedIps!;
+    }
+    final validIps = <String>[];
     try {
       final interfaces = await NetworkInterface.list(
         type: InternetAddressType.IPv4,
@@ -358,13 +364,40 @@ class DevicesPage extends StatelessWidget {
       );
       for (final interface in interfaces) {
         for (final addr in interface.addresses) {
-          if (!addr.isLoopback && !addr.address.startsWith('169.254')) {
-            return addr.address;
+          final ip = addr.address;
+          if (addr.isLoopback || ip.startsWith('127.') || ip.startsWith('169.254.')) {
+            continue;
+          }
+          if (!validIps.contains(ip)) {
+            validIps.add(ip);
           }
         }
       }
     } catch (_) {}
-    return null;
+
+    // Sort to prioritize common Wi-Fi / LAN subnets:
+    // 192.168.x.x -> highest priority (home/office Wi-Fi)
+    // 10.x.x.x -> next priority
+    // 172.16-31.x.x -> next
+    validIps.sort((a, b) {
+      int score(String ip) {
+        if (ip.startsWith('192.168.')) return 0;
+        if (ip.startsWith('10.')) return 1;
+        if (ip.startsWith('172.')) {
+          final parts = ip.split('.');
+          if (parts.length > 1) {
+            final second = int.tryParse(parts[1]) ?? 0;
+            if (second >= 16 && second <= 31) return 2;
+          }
+          return 3;
+        }
+        return 4;
+      }
+      return score(a).compareTo(score(b));
+    });
+
+    _cachedIps = validIps;
+    return validIps;
   }
 
   Future<void> _openQrScanner(BuildContext context, SyncController sync) async {
@@ -380,7 +413,20 @@ class DevicesPage extends StatelessWidget {
       final name = result['name'] as String? ?? ip;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Pairing with $name ($ip)...')),
+        SnackBar(
+          content: Row(
+            children: [
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Text('Pairing with $name ($ip:$port)...')),
+            ],
+          ),
+          duration: const Duration(seconds: 12),
+        ),
       );
 
       final res = await sync.pairWithPeer(
@@ -390,6 +436,7 @@ class DevicesPage extends StatelessWidget {
       );
 
       if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         if (res.success) {
           context.read<TaskController>().refresh();
           ScaffoldMessenger.of(context).showSnackBar(
@@ -400,9 +447,10 @@ class DevicesPage extends StatelessWidget {
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Pairing failed. Make sure both devices are on the same Wi-Fi.'),
+            SnackBar(
+              content: Text('Pairing failed: ${res.error ?? "Make sure both devices are on the same Wi-Fi and port $port is open."}'),
               backgroundColor: Colors.redAccent,
+              duration: const Duration(seconds: 6),
             ),
           );
         }
@@ -412,88 +460,74 @@ class DevicesPage extends StatelessWidget {
 
   void _showPairingCodeModal(BuildContext context, SyncController sync) {
     final pin = sync.startPairingMode();
+    final port = sync.engine.actualPort ?? 43884;
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Pairing Confirmation Code'),
         content: SizedBox(
-          width: 280,
+          width: 290,
           child: SingleChildScrollView(
-            child: FutureBuilder<String?>(
-              future: _getLocalIp(),
+            child: FutureBuilder<List<String>>(
+              future: _getLocalIps(),
+              initialData: _cachedIps,
               builder: (context, snapshot) {
-                final ip = snapshot.data ?? '127.0.0.1';
-                final qrPayload = jsonEncode({
-                  'type': 'synctask_pair',
-                  'ip': ip,
-                  'port': 43884,
-                  'pin': pin,
-                  'name': sync.localDeviceName,
-                  'id': sync.localDeviceId,
-                });
-
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      'Scan with SyncTask on mobile to pair instantly:',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 13),
-                    ),
-                    const SizedBox(height: 14),
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Colors.black12,
-                            blurRadius: 8,
-                            offset: Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: SizedBox(
-                        width: 170,
-                        height: 170,
-                        child: QrImageView(
-                          data: qrPayload,
-                          version: QrVersions.auto,
-                          padding: EdgeInsets.zero,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    const Text(
-                      'Or enter this 6-digit PIN manually:',
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                final ips = snapshot.data ?? [];
+                if (snapshot.connectionState == ConnectionState.waiting && ips.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 36),
+                    child: Center(
                       child: Text(
-                        pin,
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 6,
-                        ),
+                        'Detecting local Wi-Fi address...',
+                        style: TextStyle(fontSize: 13, color: Colors.grey),
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'Device IP: $ip : 43884\nCode valid for 5 min on local Wi-Fi',
-                      style: const TextStyle(fontSize: 11, color: Colors.grey),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
+                  );
+                }
+
+                if (ips.isEmpty) {
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.wifi_off, size: 48, color: Colors.orange),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'No Wi-Fi Network Detected',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Please connect this device to your local Wi-Fi network to enable direct sync with your other devices.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          pin,
+                          style: const TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 6,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                }
+
+                return _PairingCodeContent(
+                  ips: ips,
+                  port: port,
+                  pin: pin,
+                  deviceName: sync.localDeviceName,
+                  deviceId: sync.localDeviceId,
                 );
               },
             ),
@@ -512,14 +546,26 @@ class DevicesPage extends StatelessWidget {
     );
   }
 
-  void _showPairDialog(
+  Future<void> _showPairDialog(
     BuildContext context,
     SyncController sync, {
     String? presetIp,
     int? presetPort,
-  }) {
-    final ipController = TextEditingController(text: presetIp ?? '');
-    final portController = TextEditingController(text: (presetPort ?? 43884).toString());
+  }) async {
+    String defaultIp = presetIp ?? '';
+    if (defaultIp.isEmpty) {
+      final ips = await _getLocalIps();
+      if (ips.isNotEmpty) {
+        final parts = ips.first.split('.');
+        if (parts.length == 4) {
+          defaultIp = '${parts[0]}.${parts[1]}.${parts[2]}.';
+        }
+      }
+    }
+    if (!context.mounted) return;
+
+    final ipController = TextEditingController(text: defaultIp);
+    final portController = TextEditingController(text: (presetPort ?? (sync.engine.actualPort ?? 43884)).toString());
     final pinController = TextEditingController();
 
     showDialog(
@@ -605,6 +651,24 @@ class DevicesPage extends StatelessWidget {
               }
 
               Navigator.pop(ctx);
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Row(
+                    children: [
+                      const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(child: Text('Connecting to $ip:$port...')),
+                    ],
+                  ),
+                  duration: const Duration(seconds: 12),
+                ),
+              );
+
               final res = await sync.pairWithPeer(
                 host: ip,
                 port: port,
@@ -612,14 +676,22 @@ class DevicesPage extends StatelessWidget {
               );
 
               if (context.mounted) {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
                 if (res.success) {
                   context.read<TaskController>().refresh();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Successfully paired with ${res.device?.name}!')),
+                    SnackBar(
+                      content: Text('Successfully paired with ${res.device?.name}!'),
+                      backgroundColor: Colors.green,
+                    ),
                   );
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Pairing failed: ${res.error}')),
+                    SnackBar(
+                      content: Text('Pairing failed: ${res.error ?? "Make sure both devices are on the same Wi-Fi."}'),
+                      backgroundColor: Colors.redAccent,
+                      duration: const Duration(seconds: 6),
+                    ),
                   );
                 }
               }
@@ -659,6 +731,139 @@ class DevicesPage extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _PairingCodeContent extends StatefulWidget {
+  final List<String> ips;
+  final int port;
+  final String pin;
+  final String deviceName;
+  final String deviceId;
+
+  const _PairingCodeContent({
+    required this.ips,
+    required this.port,
+    required this.pin,
+    required this.deviceName,
+    required this.deviceId,
+  });
+
+  @override
+  State<_PairingCodeContent> createState() => _PairingCodeContentState();
+}
+
+class _PairingCodeContentState extends State<_PairingCodeContent> {
+  late String _selectedIp;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIp = widget.ips.first;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final qrPayload = jsonEncode({
+      'type': 'synctask_pair',
+      'ip': _selectedIp,
+      'port': widget.port,
+      'pin': widget.pin,
+      'name': widget.deviceName,
+      'id': widget.deviceId,
+    });
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text(
+          'Scan with SyncTask on mobile to pair instantly:',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 13),
+        ),
+        const SizedBox(height: 14),
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black12,
+                blurRadius: 8,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: SizedBox(
+            width: 170,
+            height: 170,
+            child: QrImageView(
+              data: qrPayload,
+              version: QrVersions.auto,
+              padding: EdgeInsets.zero,
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        const Text(
+          'Or enter this 6-digit PIN manually:',
+          style: TextStyle(fontSize: 12, color: Colors.grey),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primaryContainer,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            widget.pin,
+            style: const TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 6,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        if (widget.ips.length > 1) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: DropdownButton<String>(
+              isDense: true,
+              value: _selectedIp,
+              items: widget.ips.map((ip) {
+                return DropdownMenuItem(
+                  value: ip,
+                  child: Text(
+                    'IP: $ip',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                );
+              }).toList(),
+              onChanged: (val) {
+                if (val != null) {
+                  setState(() => _selectedIp = val);
+                }
+              },
+            ),
+          ),
+        ] else
+          Text(
+            'Device IP: $_selectedIp : ${widget.port}',
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+          ),
+        const SizedBox(height: 4),
+        const Text(
+          'Code valid for 5 min • Both devices must be on same Wi-Fi',
+          style: TextStyle(fontSize: 11, color: Colors.grey),
+          textAlign: TextAlign.center,
+        ),
+      ],
     );
   }
 }

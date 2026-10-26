@@ -143,33 +143,56 @@ class SettingsPage extends StatelessWidget {
               Card(
                 child: Column(
                   children: [
-                    // Floating Screen Bubble Toggle
+                    // Floating Screen / Desktop Bubble Toggle
                     SwitchListTile(
                       secondary: const Icon(Icons.bubble_chart, color: Colors.indigo),
-                      title: const Text('Floating Screen Bubble'),
-                      subtitle: const Text('Show round draggable icon on screen in PC and mobile'),
+                      title: Text(
+                        Platform.isWindows
+                            ? 'Desktop Floating Bubble'
+                            : 'Floating Screen Bubble',
+                      ),
+                      subtitle: Text(
+                        Platform.isWindows
+                            ? 'Floating circular bubble on PC desktop that stays on top of all apps'
+                            : 'Show quick-access floating bubble over other apps',
+                      ),
                       value: s.isFloatingBubbleEnabled,
-                      onChanged: s.setFloatingBubbleEnabled,
+                      onChanged: (val) async {
+                        s.setFloatingBubbleEnabled(val);
+                        if (val && Platform.isWindows) {
+                          PlatformWindowService.setWindowMode(AppWindowMode.bubble);
+                        } else if (val && Platform.isAndroid) {
+                          final service = PlatformFloatingPanelService();
+                          final hasPerm = await service.hasPermission();
+                          if (!hasPerm && context.mounted) {
+                            await service.requestPermission();
+                          }
+                        }
+                      },
                     ),
                     const Divider(height: 1),
 
-                    // Always On Top Toggle (Stay above other apps)
-                    SwitchListTile(
-                      secondary: const Icon(Icons.push_pin_outlined, color: Colors.blueAccent),
-                      title: const Text('Always On Top (Stay Above All Apps)'),
-                      subtitle: const Text('Keep window floating over browser, games, and other apps'),
-                      value: s.isAlwaysOnTop,
-                      onChanged: s.setAlwaysOnTop,
-                    ),
-                    const Divider(height: 1),
+                    // Always On Top Toggle (Stay above other apps - Desktop only)
+                    if (Platform.isWindows) ...[
+                      SwitchListTile(
+                        secondary: const Icon(Icons.push_pin_outlined, color: Colors.blueAccent),
+                        title: const Text('Always On Top (Stay Above All Apps)'),
+                        subtitle: const Text('Keep window floating over browser, games, and other apps'),
+                        value: s.isAlwaysOnTop,
+                        onChanged: s.setAlwaysOnTop,
+                      ),
+                      const Divider(height: 1),
+                    ],
 
                     // Floating Panel Window Launcher
                     const _FloatingPanelTile(),
                     const Divider(height: 1),
 
-                    // Android Home-Screen Widget Guide
-                    const _WidgetTile(),
-                    const Divider(height: 1),
+                    // Android Home-Screen Widget Guide (Android only)
+                    if (Platform.isAndroid) ...[
+                      const _WidgetTile(),
+                      const Divider(height: 1),
+                    ],
 
                     // Launch at Startup
                     const _StartupTile(),

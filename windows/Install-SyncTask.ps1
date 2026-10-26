@@ -64,6 +64,12 @@ Set-ItemProperty -Path $regPath -Name "Publisher" -Value "Girdhar Dhami (OneBotY
 Set-ItemProperty -Path $regPath -Name "InstallLocation" -Value $targetDir
 Set-ItemProperty -Path $regPath -Name "UninstallString" -Value "powershell.exe -NoProfile -Command Remove-Item -Recurse -Force '$targetDir'; Remove-Item -Force '$desktopShortcutPath'; Remove-Item -Force '$startMenuShortcutPath'; Remove-Item -Recurse -Force '$regPath'"
 
+Write-Host "[*] Configuring Windows Firewall for Wi-Fi Sync..." -ForegroundColor Green
+try {
+    Start-Process -FilePath "netsh" -ArgumentList "advfirewall firewall add rule name=`"SyncTask Sync Service (TCP)`" dir=in action=allow program=`"$exePath`" enable=yes profile=any" -WindowStyle Hidden -Wait -ErrorAction SilentlyContinue
+    Start-Process -FilePath "netsh" -ArgumentList "advfirewall firewall add rule name=`"SyncTask Discovery (UDP)`" dir=in action=allow program=`"$exePath`" enable=yes profile=any" -WindowStyle Hidden -Wait -ErrorAction SilentlyContinue
+} catch {}
+
 Write-Host "==============================================" -ForegroundColor Cyan
 Write-Host "       Installation Complete!" -ForegroundColor Cyan
 Write-Host "       Launching SyncTask..." -ForegroundColor Cyan
