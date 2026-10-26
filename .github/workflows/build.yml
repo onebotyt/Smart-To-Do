@@ -81,6 +81,7 @@ jobs:
       - name: Compress Windows bundle
         shell: pwsh
         run: |
+          Copy-Item "windows\Install-SyncTask.cmd" -Destination "build\windows\x64\runner\Release\"
           Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "synctask-windows-release.zip"
 
       - name: Upload Windows Bundle
@@ -138,7 +139,7 @@ jobs:
             ### 🚀 Direct One-Click Downloads
             - 📱 **Android (Lightweight ~20MB, for all modern phones)**: [SyncTask-Android-arm64.apk](https://github.com/onebotyt/Smart-To-Do/releases/download/${{ env.VERSION_TAG }}/SyncTask-Android-arm64.apk)
             - 📱 **Android (Universal, all architectures)**: [SyncTask-Android.apk](https://github.com/onebotyt/Smart-To-Do/releases/download/${{ env.VERSION_TAG }}/SyncTask-Android.apk)
-            - 💻 **Windows Application (Zip)**: [SyncTask-Windows.zip](https://github.com/onebotyt/Smart-To-Do/releases/download/${{ env.VERSION_TAG }}/SyncTask-Windows.zip)
+            - 💻 **Windows Application (Installer Included)**: [SyncTask-Windows.zip](https://github.com/onebotyt/Smart-To-Do/releases/download/${{ env.VERSION_TAG }}/SyncTask-Windows.zip) *(Extract and double-click `Install-SyncTask.cmd` for automatic desktop/start-menu install!)*
           files: |
             SyncTask-Android.apk
             SyncTask-Android-arm64.apk

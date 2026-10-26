@@ -7,6 +7,7 @@ import '../../platform/update_service.dart';
 import '../clipboard/clipboard_controller.dart';
 import '../floating_panel/floating_task_panel.dart';
 import '../sync/devices_page.dart';
+import '../update/update_dialog.dart';
 import 'settings_controller.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -15,60 +16,184 @@ class SettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = context.watch<SettingsController>();
+
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
-      body: ListView(
-        children: [
-          const _Header('Sync & Devices'),
-          ListTile(
-            leading: const Icon(Icons.devices),
-            title: const Text('Paired Devices & Wi-Fi Sync'),
-            subtitle: const Text('Direct device-to-device synchronization'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const DevicesPage()),
-            ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 860),
+          child: ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            children: [
+              const _Header('Sync & Devices'),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.devices, color: Colors.blue),
+                  title: const Text('Paired Devices & Wi-Fi Sync'),
+                  subtitle: const Text('Direct device-to-device synchronization'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const DevicesPage()),
+                  ),
+                ),
+              ),
+
+              const _Header('Appearance & Color Themes'),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Mode Selector (System, Light, Dark)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Theme Mode', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                          DropdownButton<ThemeMode>(
+                            value: s.themeMode,
+                            underline: const SizedBox(),
+                            onChanged: (m) => m == null ? null : s.setThemeMode(m),
+                            items: const [
+                              DropdownMenuItem(value: ThemeMode.system, child: Text('System Default')),
+                              DropdownMenuItem(value: ThemeMode.light, child: Text('Light Mode')),
+                              DropdownMenuItem(value: ThemeMode.dark, child: Text('Dark Mode')),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Accent Color Palette
+                      const Text(
+                        'Accent Color Theme',
+                        style: TextStyle(fontSize: 13, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 10,
+                        children: List.generate(
+                          SettingsController.themePalette.length,
+                          (index) {
+                            final color = SettingsController.themePalette[index];
+                            final isSelected = s.themeColorIndex == index;
+                            final name = SettingsController.themeColorNames[index];
+
+                            return Tooltip(
+                              message: name,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(24),
+                                onTap: () => s.setThemeColorIndex(index),
+                                child: Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: color,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: isSelected ? Colors.white : Colors.transparent,
+                                      width: 3,
+                                    ),
+                                    boxShadow: isSelected
+                                        ? [
+                                            BoxShadow(
+                                              color: color.withValues(alpha: 0.6),
+                                              blurRadius: 8,
+                                              spreadRadius: 2,
+                                            ),
+                                          ]
+                                        : null,
+                                  ),
+                                  child: isSelected
+                                      ? const Icon(Icons.check, color: Colors.white, size: 20)
+                                      : null,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // AMOLED Pure Black Option
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('AMOLED Pure Black (Dark Mode)'),
+                        subtitle: const Text('Pitch black background for OLED screens & battery saving'),
+                        value: s.isAmoledDark,
+                        onChanged: s.setAmoledDark,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const _Header('Productivity & Floating Controls'),
+              Card(
+                child: Column(
+                  children: [
+                    // Floating Screen Bubble Toggle
+                    SwitchListTile(
+                      secondary: const Icon(Icons.bubble_chart, color: Colors.indigo),
+                      title: const Text('Floating Screen Bubble'),
+                      subtitle: const Text('Show round draggable icon on screen in PC and mobile'),
+                      value: s.isFloatingBubbleEnabled,
+                      onChanged: s.setFloatingBubbleEnabled,
+                    ),
+                    const Divider(height: 1),
+
+                    // Floating Panel Window Launcher
+                    const _FloatingPanelTile(),
+                    const Divider(height: 1),
+
+                    // Android Home-Screen Widget Guide
+                    const _WidgetTile(),
+                    const Divider(height: 1),
+
+                    // Launch at Startup
+                    const _StartupTile(),
+                  ],
+                ),
+              ),
+
+              const _Header('Universal Clipboard Sharing'),
+              const Card(child: _ClipboardSyncTile()),
+
+              const _Header('Tasks Preferences'),
+              Card(
+                child: Column(
+                  children: [
+                    SwitchListTile(
+                      title: const Text('Show completed tasks in main list'),
+                      value: s.showCompleted,
+                      onChanged: s.setShowCompleted,
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      title: const Text('Default task priority'),
+                      trailing: DropdownButton<int>(
+                        value: s.defaultPriority,
+                        underline: const SizedBox(),
+                        onChanged: (v) => v == null ? null : s.setDefaultPriority(v),
+                        items: const [
+                          DropdownMenuItem(value: 0, child: Text('Low (Green)')),
+                          DropdownMenuItem(value: 1, child: Text('Normal (Amber)')),
+                          DropdownMenuItem(value: 2, child: Text('High (Red)')),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const _Header('App Updates'),
+              const Card(child: _UpdateTile()),
+              const SizedBox(height: 24),
+            ],
           ),
-          const _Header('Appearance'),
-          ListTile(
-            title: const Text('Theme'),
-            trailing: DropdownButton<ThemeMode>(
-              value: s.themeMode,
-              onChanged: (m) => m == null ? null : s.setThemeMode(m),
-              items: const [
-                DropdownMenuItem(value: ThemeMode.system, child: Text('System')),
-                DropdownMenuItem(value: ThemeMode.light, child: Text('Light')),
-                DropdownMenuItem(value: ThemeMode.dark, child: Text('Dark')),
-              ],
-            ),
-          ),
-          const _Header('Tasks'),
-          SwitchListTile(
-            title: const Text('Show completed tasks'),
-            value: s.showCompleted,
-            onChanged: s.setShowCompleted,
-          ),
-          ListTile(
-            title: const Text('Default priority'),
-            trailing: DropdownButton<int>(
-              value: s.defaultPriority,
-              onChanged: (v) => v == null ? null : s.setDefaultPriority(v),
-              items: const [
-                DropdownMenuItem(value: 0, child: Text('Low')),
-                DropdownMenuItem(value: 1, child: Text('Normal')),
-                DropdownMenuItem(value: 2, child: Text('High')),
-              ],
-            ),
-          ),
-          const _Header('Productivity & Platform Features'),
-          const _FloatingPanelTile(),
-          const _WidgetTile(),
-          const _StartupTile(),
-          const _ClipboardSyncTile(),
-          const _Header('App updates'),
-          const _UpdateTile(),
-        ],
+        ),
       ),
     );
   }
@@ -81,9 +206,9 @@ class _FloatingPanelTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final service = PlatformFloatingPanelService();
     return ListTile(
-      leading: const Icon(Icons.picture_in_picture_alt),
-      title: const Text('Floating task panel'),
-      subtitle: const Text('Compact, always-on-top quick entry panel'),
+      leading: const Icon(Icons.picture_in_picture_alt, color: Colors.blue),
+      title: const Text('Floating task panel window'),
+      subtitle: const Text('Open compact always-on-top quick checklist'),
       trailing: const Icon(Icons.open_in_new, size: 20),
       onTap: () async {
         final hasPerm = await service.hasPermission();
@@ -113,9 +238,9 @@ class _WidgetTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: const Icon(Icons.widgets_outlined),
-      title: const Text('Home-screen widget'),
-      subtitle: const Text('Android native widget with live pending tasks'),
+      leading: const Icon(Icons.widgets_outlined, color: Colors.teal),
+      title: const Text('Home-screen widget (Android)'),
+      subtitle: const Text('Native Android widget with live pending tasks'),
       trailing: const Icon(Icons.info_outline, size: 20),
       onTap: () {
         showDialog(
@@ -167,92 +292,14 @@ class _StartupTileState extends State<_StartupTile> {
   @override
   Widget build(BuildContext context) {
     return SwitchListTile(
-      secondary: const Icon(Icons.rocket_launch_outlined),
-      title: const Text('Launch at startup'),
+      secondary: const Icon(Icons.rocket_launch_outlined, color: Colors.deepOrange),
+      title: const Text('Launch at startup (Windows)'),
       subtitle: const Text('Start SyncTask automatically in background'),
       value: _enabled,
       onChanged: (val) async {
         setState(() => _enabled = val);
         await _service.setLaunchAtStartup(val);
       },
-    );
-  }
-}
-
-class _UpdateTile extends StatefulWidget {
-  const _UpdateTile();
-
-  @override
-  State<_UpdateTile> createState() => _UpdateTileState();
-}
-
-class _UpdateTileState extends State<_UpdateTile> {
-  final _service = GitHubUpdateService();
-  bool _checking = false;
-  AppRelease? _release;
-  String? _statusMessage;
-
-  Future<void> _check() async {
-    setState(() {
-      _checking = true;
-      _statusMessage = null;
-    });
-
-    final release = await _service.checkForUpdate();
-    if (!mounted) return;
-
-    setState(() {
-      _checking = false;
-      _release = release;
-      if (release == null) {
-        _statusMessage = 'App is up to date (v0.1.0)';
-      }
-    });
-  }
-
-  Future<void> _install() async {
-    if (_release != null) {
-      await _service.launchDownload(_release!.downloadUrl);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_checking) {
-      return const ListTile(
-        leading: SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
-        title: Text('Checking for updates...'),
-      );
-    }
-
-    if (_release != null) {
-      return ListTile(
-        leading: const Icon(Icons.system_update, color: Colors.green),
-        title: Text('Update available: ${_release!.versionTag}'),
-        subtitle: Text(_release!.title),
-        trailing: FilledButton.icon(
-          icon: const Icon(Icons.download, size: 16),
-          label: const Text('Update'),
-          onPressed: _install,
-        ),
-      );
-    }
-
-    return ListTile(
-      leading: ClipRRect(
-        borderRadius: BorderRadius.circular(6),
-        child: Image.asset('assets/logo.png', width: 32, height: 32),
-      ),
-      title: const Text('SyncTask v0.1.0'),
-      subtitle: Text(_statusMessage ?? 'Tap to check for new updates'),
-      trailing: OutlinedButton(
-        onPressed: _check,
-        child: const Text('Check now'),
-      ),
     );
   }
 }
@@ -270,13 +317,16 @@ class _ClipboardSyncTile extends StatelessWidget {
     }
 
     if (clip == null) {
-      return const _Cap('Universal clipboard', true);
+      return const ListTile(
+        title: Text('Universal clipboard'),
+        subtitle: Text('Plain-text sharing across devices'),
+      );
     }
 
     return Column(
       children: [
         SwitchListTile(
-          secondary: const Icon(Icons.content_paste_go_outlined),
+          secondary: const Icon(Icons.content_paste_go_outlined, color: Colors.purple),
           title: const Text('Universal clipboard'),
           subtitle: Text(
             clip.isEnabled
@@ -290,7 +340,7 @@ class _ClipboardSyncTile extends StatelessWidget {
         ),
         if (clip.isEnabled)
           Padding(
-            padding: const EdgeInsets.fromLTRB(68, 0, 16, 8),
+            padding: const EdgeInsets.fromLTRB(68, 0, 16, 12),
             child: Row(
               children: [
                 OutlinedButton.icon(
@@ -304,7 +354,7 @@ class _ClipboardSyncTile extends StatelessWidget {
                   ),
                   onPressed: () => clip!.setPaused(!clip.isPaused),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Text(
                   'Plain text only • Loop protected',
                   style: TextStyle(
@@ -320,26 +370,97 @@ class _ClipboardSyncTile extends StatelessWidget {
   }
 }
 
+class _UpdateTile extends StatefulWidget {
+  const _UpdateTile();
+
+  @override
+  State<_UpdateTile> createState() => _UpdateTileState();
+}
+
+class _UpdateTileState extends State<_UpdateTile> {
+  final _service = GitHubUpdateService();
+  String? _statusMessage;
+  bool _isChecking = false;
+  AppRelease? _foundRelease;
+
+  Future<void> _check() async {
+    setState(() {
+      _isChecking = true;
+      _statusMessage = 'Checking for updates...';
+      _foundRelease = null;
+    });
+
+    final release = await _service.checkForUpdate();
+    if (!mounted) return;
+
+    if (release != null) {
+      setState(() {
+        _isChecking = false;
+        _statusMessage = 'New version available: ${release.versionTag}!';
+        _foundRelease = release;
+      });
+      // Automatically prompt the animated update dialog
+      UpdateDownloadDialog.show(context, release);
+    } else {
+      setState(() {
+        _isChecking = false;
+        _statusMessage = "You're on the latest version! 🎉";
+        _foundRelease = null;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          color: Theme.of(context).colorScheme.primaryContainer,
+        ),
+        alignment: Alignment.center,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.asset('assets/logo.png', width: 28, height: 28),
+        ),
+      ),
+      title: const Text('SyncTask Updates', style: TextStyle(fontWeight: FontWeight.bold)),
+      subtitle: Text(_statusMessage ?? 'Tap "Check now" to look for new updates'),
+      trailing: _isChecking
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : (_foundRelease != null
+              ? FilledButton.icon(
+                  icon: const Icon(Icons.rocket_launch, size: 16),
+                  label: const Text('Update Now'),
+                  onPressed: () => UpdateDownloadDialog.show(context, _foundRelease!),
+                )
+              : OutlinedButton(
+                  onPressed: _check,
+                  child: const Text('Check now'),
+                )),
+    );
+  }
+}
+
 class _Header extends StatelessWidget {
   const _Header(this.text);
   final String text;
+
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-        child: Text(text, style: Theme.of(context).textTheme.titleSmall),
-      );
-}
-
-class _Cap extends StatelessWidget {
-  const _Cap(this.name, this.supported);
-  final String name;
-  final bool supported;
-  @override
-  Widget build(BuildContext context) => ListTile(
-        enabled: false,
-        title: Text(name),
-        subtitle: Text(supported
-            ? 'Supported on this OS (not implemented yet)'
-            : 'Not supported on this OS'),
+        padding: const EdgeInsets.fromLTRB(12, 16, 12, 6),
+        child: Text(
+          text,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+        ),
       );
 }

@@ -46,7 +46,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify empty state is displayed initially
-    expect(find.text('No tasks found. Tap + to add one.'), findsOneWidget);
+    expect(find.text('All caught up!'), findsOneWidget);
 
     // Tap Floating Action Button to navigate to TaskEditPage
     await tester.tap(find.byType(FloatingActionButton));
@@ -54,13 +54,16 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     // Verify TaskEditPage is displayed
-    expect(find.text('New task'), findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(AppBar), matching: find.text('New Task')),
+      findsOneWidget,
+    );
 
-    // Enter task details: Title and Category
+    // Enter task details: Note (unified note-first input) and Category
     await tester.enterText(
-        find.widgetWithText(TextFormField, 'Title'), 'Write Milestone 1 Tests');
+        find.byType(TextFormField).first, 'Write Milestone 1 Tests');
     await tester.enterText(
-        find.widgetWithText(TextFormField, 'Category'), 'Engineering');
+        find.widgetWithText(TextFormField, 'Category (Optional)'), 'Engineering');
     await tester.pump();
 
     await tester.tap(find.descendant(
@@ -70,7 +73,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify returned to TasksPage and task is displayed
-    expect(find.widgetWithText(ListTile, 'Write Milestone 1 Tests'), findsOneWidget);
+    expect(find.text('Write Milestone 1 Tests'), findsOneWidget);
 
     // Verify task is persisted in repository
     final tasks = await repo.list();
@@ -82,14 +85,14 @@ void main() {
     // Verify category chip is shown
     expect(find.text('Engineering'), findsWidgets);
 
-    // Test Pending / Completed toggle: switch to Completed
-    await tester.tap(find.text('Completed'));
+    // Test Pending / Done toggle: switch to Done
+    await tester.tap(find.textContaining('Done'));
     await tester.pumpAndSettle();
-    expect(find.widgetWithText(ListTile, 'Write Milestone 1 Tests'), findsNothing);
+    expect(find.text('Write Milestone 1 Tests'), findsNothing);
 
     // Switch back to Pending
-    await tester.tap(find.text('Pending'));
+    await tester.tap(find.textContaining('Pending'));
     await tester.pumpAndSettle();
-    expect(find.widgetWithText(ListTile, 'Write Milestone 1 Tests'), findsOneWidget);
+    expect(find.text('Write Milestone 1 Tests'), findsOneWidget);
   });
 }

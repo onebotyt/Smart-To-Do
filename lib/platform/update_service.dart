@@ -72,9 +72,14 @@ class GitHubUpdateService implements UpdateService {
         if (a is Map<String, dynamic>) {
           final name = (a['name'] as String? ?? '').toLowerCase();
           final browserUrl = a['browser_download_url'] as String? ?? '';
-          if (Platform.isAndroid && name.endsWith('.apk')) {
-            downloadUrl = browserUrl;
-            break;
+          if (Platform.isAndroid) {
+            // Prioritize lightweight ~20MB arm64 APK for phones
+            if (name.contains('arm64') && name.endsWith('.apk')) {
+              downloadUrl = browserUrl;
+              break;
+            } else if (name.endsWith('.apk') && downloadUrl == htmlUrl) {
+              downloadUrl = browserUrl;
+            }
           } else if (Platform.isWindows && name.endsWith('.zip')) {
             downloadUrl = browserUrl;
             break;
