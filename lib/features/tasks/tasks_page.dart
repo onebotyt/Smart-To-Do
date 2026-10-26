@@ -14,7 +14,17 @@ class TasksPage extends StatelessWidget {
     final c = context.watch<TaskController>();
     return Scaffold(
       appBar: AppBar(
-        title: const Text('SyncTask'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Image.asset('assets/logo.png', width: 28, height: 28),
+            ),
+            const SizedBox(width: 10),
+            const Text('SyncTask'),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),

@@ -103,8 +103,10 @@ jobs:
         run: |
           VERSION="v0.1.${{ github.run_number }}"
           echo "VERSION_TAG=$VERSION" >> $GITHUB_ENV
-          mv app-debug.apk "SyncTask-${VERSION}-android.apk"
-          mv synctask-windows-release.zip "SyncTask-${VERSION}-windows.zip"
+          cp app-debug.apk "SyncTask-${VERSION}-android.apk"
+          cp app-debug.apk "SyncTask-Android.apk"
+          cp synctask-windows-release.zip "SyncTask-${VERSION}-windows.zip"
+          cp synctask-windows-release.zip "SyncTask-Windows.zip"
 
       - name: Create or Update GitHub Release
         uses: softprops/action-gh-release@v2
@@ -116,17 +118,18 @@ jobs:
           body: |
             ## SyncTask ${{ env.VERSION_TAG }}
             
-            Automated release generated from commit `${{ github.sha }}`.
+            Automated build for SyncTask commit `${{ github.sha }}`.
 
-            ### Downloads
-            - 📱 **Android APK**: `SyncTask-${{ env.VERSION_TAG }}-android.apk`
-            - 💻 **Windows Application (Zip)**: `SyncTask-${{ env.VERSION_TAG }}-windows.zip`
+            ### 🚀 Direct One-Click Downloads
+            - 📱 **Android APK**: [SyncTask-Android.apk](https://github.com/onebotyt/Smart-To-Do/releases/download/${{ env.VERSION_TAG }}/SyncTask-Android.apk)
+            - 💻 **Windows Application (Zip)**: [SyncTask-Windows.zip](https://github.com/onebotyt/Smart-To-Do/releases/download/${{ env.VERSION_TAG }}/SyncTask-Windows.zip)
 
-            ### What's New
-            - Cross-platform task manager with SQLite storage
-            - Category chips & Pending/Completed view toggle
-            - Transactional change log for future device-to-device sync
+            ### Versioned Archives
+            - `SyncTask-${{ env.VERSION_TAG }}-android.apk`
+            - `SyncTask-${{ env.VERSION_TAG }}-windows.zip`
           files: |
+            SyncTask-Android.apk
+            SyncTask-Windows.zip
             SyncTask-${{ env.VERSION_TAG }}-android.apk
             SyncTask-${{ env.VERSION_TAG }}-windows.zip
         env:

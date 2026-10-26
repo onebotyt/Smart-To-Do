@@ -123,7 +123,10 @@ class _UpdateTileState extends State<_UpdateTile> {
     }
 
     return ListTile(
-      leading: const Icon(Icons.check_circle_outline),
+      leading: ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: Image.asset('assets/logo.png', width: 32, height: 32),
+      ),
       title: const Text('SyncTask v0.1.0'),
       subtitle: Text(_statusMessage ?? 'Tap to check for new updates'),
       trailing: OutlinedButton(
