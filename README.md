@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Native, cross-platform, local-first task manager with direct device-to-device sync.</strong><br>
-  <em>No cloud backend. No mandatory accounts. Full user data ownership.</em>
+  <em>No cloud backend. No mandatory accounts. 100% user data ownership.</em>
 </p>
 
 <p align="center">
@@ -19,62 +19,101 @@
 
 ---
 
-## 🚀 Direct One-Click Downloads
+## 🚀 Direct One-Click Downloads (Latest Version)
 
-Download the latest builds directly with a single click below:
+Always get the newest release directly with a single click below:
 
-| Platform | Architecture / Format | Direct Download Link | Optimized Size |
-| :--- | :--- | :--- | :--- |
-| 📱 **Android (Recommended)** | `arm64-v8a` (All modern Android phones) | [📥 **Download Android APK (arm64)**](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Android-arm64.apk) | **~20.4 MB** (87% smaller) |
-| 📱 **Android (Universal)** | Multi-ABI (Works on any Android device) | [📥 **Download Universal APK**](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Android.apk) | ~57 MB |
-| 💻 **Windows** | Portable `.zip` executable package | [📥 **Download Windows Desktop (.zip)**](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Windows.zip) | Portable Bundle |
+| Platform | Format / Architecture | Download Link | File Size | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| 📱 **Android (Recommended)** | `arm64-v8a` APK | [📥 **Download Android APK (arm64)**](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Android-arm64.apk) | **~20.4 MB** | Optimized for 99% of modern phones |
+| 📱 **Android (Universal)** | Multi-ABI APK | [📥 **Download Universal APK**](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Android.apk) | ~58 MB | Compatible with all Android devices |
+| 💻 **Windows** | ZIP with Installer | [📥 **Download Windows Bundle (.zip)**](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Windows.zip) | **~13.2 MB** | Includes One-Click Desktop Installer |
 
-> 💡 *View all release history, release notes, and version archives on the [GitHub Releases Page](https://github.com/onebotyt/Smart-To-Do/releases).*
+> 📦 *View all release changelogs and historical archives on the [GitHub Releases Page](https://github.com/onebotyt/Smart-To-Do/releases).*
 
 ---
 
-## ✨ Features
+## 💻 Installation Instructions
 
-### 🔄 Phone–PC Direct Synchronization (Zero Cloud)
-- **Direct Device-to-Device**: Syncs directly between phone and computer over your local Wi-Fi network without third-party servers, Firebase, or external accounts.
-- **LAN Discovery**: Automatically discovers nearby SyncTask devices via UDP broadcast on port `43884`.
-- **6-Digit Confirmation PIN Pairing**: Secure mutual authentication ensures only explicitly trusted devices can connect.
-- **Smart Delta & Conflict Resolution**: Uses composite version vectors (`${revision}:${deviceId}`) to detect concurrent edits, and resolves conflicts using a 3-way merge and Last-Write-Wins (LWW) with deterministic tie-breaking.
-- **Soft-Deletion Tombstones**: Deletions propagate across all paired devices before being safely purged.
+### 🖥️ Windows (One-Click Setup)
+1. Download [**SyncTask-Windows.zip**](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Windows.zip).
+2. Right-click the downloaded zip and choose **Extract All...**.
+3. Open the extracted folder and double-click **`Install-SyncTask.cmd`**.
+4. SyncTask will automatically install to `%LocalAppData%\Programs\SyncTask`, place shortcuts on your **Desktop** and **Start Menu**, and launch immediately!
 
-### 📌 Floating Task Panel & Quick Entry
-- **Compact Overlay**: Always-on-top desktop window or floating mobile overlay.
-- **Instant Input**: Add tasks with priority selection in a single tap without opening the main window.
-- **Interactive Checklist**: One-tap completion checkboxes, dynamic pending badge, and quick sync action.
+### 📱 Android
+1. Download [**SyncTask-Android-arm64.apk**](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Android-arm64.apk) directly on your device.
+2. Tap the downloaded notification to open the package installer.
+3. If prompted, allow installation from this source.
+4. Tap **Install** or **Update**.
 
-### 📱 Android Native Home-Screen Widget
-- **Live Home-Screen Widget**: Android native `AppWidgetProvider` displaying your active pending task count and top upcoming tasks directly on your launcher.
-- **Automatic Background Refresh**: Updates automatically whenever tasks are added, modified, or completed.
+### 🔄 In-App Automatic Updates
+SyncTask automatically checks for newer versions on startup:
+- An **"Update Available"** banner appears right at the top of your task list whenever a newer release is published.
+- Tap **Update Now** to watch live download progress with animated byte indicators.
+- **On Android**: Automatically opens the system installer dialog.
+- **On Windows**: Automatically extracts and updates files seamlessly.
+
+---
+
+## ✨ Features & Highlights
+
+### 📝 Modern Note-First Task Creator
+- **Unified Note Entry**: No more rigid, separate "Title" and "Notes" boxes. Write naturally in a single, spacious note area.
+- **Smart Title Extraction**: The first line automatically acts as the concise task summary for widget and notification previews, keeping 100% backward compatibility with sync and SQLite.
+- **Clean Quick Controls**: Priority chips, due dates, daily/weekly recurrence, and category tags.
+
+### 🎨 8 Vibrant Color Themes + AMOLED True Black
+- Customize the app to match your personal style in **Settings**:
+  - 🟣 **Indigo** (Default)
+  - 🔵 **Ocean Blue**
+  - 🩵 **Teal**
+  - 🟢 **Emerald Green**
+  - 🟠 **Sunset Amber**
+  - 🔮 **Royal Purple**
+  - 🌸 **Rose**
+  - 🔘 **Slate**
+- **AMOLED Dark Mode**: True `#000000` pitch black background for OLED/AMOLED screens, maximizing battery life and contrast.
+
+### 🫧 Round Floating Screen Bubble & Quick Panel
+- Draggable round floating bubble with the SyncTask app logo and pending task count badge.
+- **Click the bubble** ➔ Expands with a smooth spring zoom (`Curves.easeOutBack`) into the compact `FloatingTaskPanel` to view, check off, or add tasks without interrupting your workflow.
+- **Close or tap backdrop** ➔ Smoothly collapses back to the compact draggable bubble.
+
+### 🌊 Fluid 60/120fps Animations & Transitions
+- **Native Zoom Page Transitions**: Seamless page transitions across Windows and Android via `ZoomPageTransitionsBuilder` and `PredictiveBackPageTransitionsBuilder`.
+- **Tactile Task Completion**: Subtle checkbox bounce, animated strikethrough transition, and soft card opacity fade.
+- **Staggered Cascade List**: Tasks gracefully cascade into view with an index-based slide-and-fade animation.
+- **`InkSparkle` Ripples**: Material 3 high-fidelity touch feedback.
+
+### 🔄 Direct Phone–PC Synchronization (Zero Cloud)
+- **Local Wi-Fi P2P**: Direct socket communication over LAN on port `43884`—no servers, Firebase, or external accounts.
+- **LAN Discovery**: Discovers paired devices automatically using UDP broadcast.
+- **6-Digit PIN Pairing**: Secure mutual authentication ensures only authorized devices connect.
+- **3-Way Delta Conflict Resolver**: Version vectors track concurrent offline edits with Last-Write-Wins (LWW) and device tie-breaking.
 
 ### 📋 Universal Clipboard Sharing
-- **Cross-Device Text Sharing**: Copy on your phone and paste on your PC (and vice versa) seamlessly.
-- **Strict Opt-In & Pause Controls**: Disabled by default for privacy; includes instantaneous pause/resume toggle.
-- **Loop Prevention & Deduplication**: Rolling 50-item cryptographic SHA-256 hash cache prevents bounce-back echo loops between devices.
-- **Zero Logging Policy**: Strictly enforces that clipboard contents are never printed or saved to application logs.
+- Copy text on your phone and immediately paste it on your PC (and vice-versa).
+- Strict opt-in privacy, instant pause toggle, and SHA-256 rolling hash loop prevention. Zero logging policy.
 
-### 🔒 Local-First SQLite Persistence
-- **100% Offline Capable**: All data is stored in local SQLite databases (`AppDatabase` v3 schema).
-- **Atomic Transactions**: Every task write atomically commits changes and monotonic `change_log` entries.
-- **Categories, Priorities & Recurrence**: Organize with custom categories, priority flags, due dates, and daily/weekly recurring tasks.
+### 📱 Android Native Home-Screen Widget
+- Home-screen `AppWidgetProvider` displaying your pending task count and top upcoming tasks directly on your launcher.
+- Updates automatically whenever tasks are added, modified, or completed.
 
-### 🔄 In-App One-Click Updates
-- Check for new GitHub releases directly inside the app and install updates with one tap from Settings.
+### 🔒 100% Local-First SQLite Storage
+- All data stays locally on your device in SQLite (`AppDatabase` v3 schema).
+- Atomic repository commits ensure data safety and instant offline responsiveness.
 
 ---
 
 ## 🛠️ Technology Stack
 
-- **Framework**: Flutter (Channel Stable) & Dart 3
-- **Local Storage**: SQLite with `sqflite` & `sqflite_common_ffi`
+- **Framework**: Flutter (Stable Channel) & Dart 3
+- **Local Database**: SQLite via `sqflite` & `sqflite_common_ffi`
 - **Networking**: Direct TCP Sockets & UDP Broadcast (`dart:io`) with zero cloud dependencies
-- **Security**: Cryptographic SHA-256 fingerprinting & PIN verification (`crypto`)
+- **Security**: Cryptographic SHA-256 hashing (`crypto`)
 - **State Management**: `provider` + `ChangeNotifier`
-- **CI/CD**: GitHub Actions compiling optimized Android APKs and Windows desktop releases with automated semantic versioning
+- **CI/CD**: GitHub Actions automating multi-architecture AOT compilation and releases
 
 ---
 
@@ -113,7 +152,9 @@ flutter run
 - [x] **Milestone 3**: Phone–PC Sync — UDP LAN discovery, 6-digit PIN mutual pairing, encrypted direct socket sync, revision tie-breaking.
 - [x] **Milestone 4**: Native Productivity — Compact floating task panel, Android native home-screen widget (`AppWidgetProvider`), tray & startup services.
 - [x] **Milestone 5**: Universal Clipboard — Encrypted bidirectional plain-text clipboard sync with loop prevention, pause controls, and zero logging.
-- [x] **Milestone 6 / 7**: Packaging Optimization — AOT release split builds (87% APK size reduction), automated CI/CD releases.
+- [x] **Milestone 6**: UI/UX Modernization & Theme Palette — Note-first task editor, 8 selectable color themes, AMOLED mode, responsive filters.
+- [x] **Milestone 7**: Packaging & Installer — AOT split APKs (~20MB), Windows one-click desktop installer (`Install-SyncTask.cmd`), animated in-app updater.
+- [x] **Milestone 8**: Fluid Animations & Transitions — 60/120fps page zoom transitions, spring morph floating bubble, tactile completion micro-interactions.
 
 ---
 
