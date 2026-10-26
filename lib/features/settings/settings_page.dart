@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/capabilities.dart';
 import '../../platform/floating_panel_service.dart';
 import '../../platform/startup_service.dart';
 import '../../platform/update_service.dart';
+import '../clipboard/clipboard_controller.dart';
 import '../floating_panel/floating_task_panel.dart';
 import '../sync/devices_page.dart';
 import 'settings_controller.dart';
@@ -65,7 +65,7 @@ class SettingsPage extends StatelessWidget {
           const _FloatingPanelTile(),
           const _WidgetTile(),
           const _StartupTile(),
-          _Cap('Universal clipboard (Milestone 5)', Capabilities.clipboardSync),
+          const _ClipboardSyncTile(),
           const _Header('App updates'),
           const _UpdateTile(),
         ],
@@ -253,6 +253,69 @@ class _UpdateTileState extends State<_UpdateTile> {
         onPressed: _check,
         child: const Text('Check now'),
       ),
+    );
+  }
+}
+
+class _ClipboardSyncTile extends StatelessWidget {
+  const _ClipboardSyncTile();
+
+  @override
+  Widget build(BuildContext context) {
+    ClipboardController? clip;
+    try {
+      clip = context.watch<ClipboardController>();
+    } catch (_) {
+      clip = null;
+    }
+
+    if (clip == null) {
+      return const _Cap('Universal clipboard', true);
+    }
+
+    return Column(
+      children: [
+        SwitchListTile(
+          secondary: const Icon(Icons.content_paste_go_outlined),
+          title: const Text('Universal clipboard'),
+          subtitle: Text(
+            clip.isEnabled
+                ? (clip.isPaused
+                    ? 'Paused • Not sharing copied text'
+                    : 'Active • Text copies sync between trusted devices')
+                : 'Disabled • Opt-in to share copied text',
+          ),
+          value: clip.isEnabled,
+          onChanged: clip.setEnabled,
+        ),
+        if (clip.isEnabled)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(68, 0, 16, 8),
+            child: Row(
+              children: [
+                OutlinedButton.icon(
+                  icon: Icon(
+                    clip.isPaused ? Icons.play_arrow : Icons.pause,
+                    size: 16,
+                  ),
+                  label: Text(clip.isPaused ? 'Resume sync' : 'Pause sync'),
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  onPressed: () => clip!.setPaused(!clip.isPaused),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Plain text only • Loop protected',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

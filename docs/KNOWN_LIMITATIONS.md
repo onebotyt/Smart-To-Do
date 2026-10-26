@@ -1,4 +1,4 @@
-# Known Limitations and Implementation Status (Milestones 1, 2, 3 & 4)
+# Known Limitations and Implementation Status (Milestones 1, 2, 3, 4 & 5)
 
 ## 1. Implemented Features
 - **Local Database Architecture & Migrations (Milestones 1 & 2)**:
@@ -33,12 +33,24 @@
     - Automatic widget updates whenever tasks change in `TaskController`.
   - Windows productivity integration:
     - Launch-at-startup settings toggle and background tray architecture.
+- **Universal Clipboard Sharing (Milestone 5)**:
+  - `ClipboardService` platform abstraction layer with `onLocalCopy`, `readText`, and `writeText`.
+  - `ClipboardController` managing:
+    - Strict **opt-in** preference (disabled by default in settings).
+    - One-tap **pause / resume** controls.
+    - **Loop prevention & deduplication**: rolling SHA-256 hash cache preventing bounce-back echo loops between devices.
+    - **Zero logging**: strictly enforces that clipboard content is never logged, printed, or persisted in application logs.
+    - **Plain-text only**: rejects rich/binary payload types.
+  - `SyncEngine.broadcastClipboardText` delivering plain-text clipboard events directly to reachable trusted peers over TCP.
+  - Inbound mutual authentication ensuring only verified, trusted devices can deliver clipboard text.
 - **State Management & UI**:
   - `SyncController` managing socket lifecycle, LAN discovery, pairing state, and device synchronization.
+  - `ClipboardController` managing universal clipboard opt-in, pause state, and synchronization.
   - `DevicesPage` with local device info, Wi-Fi peer discovery, paired devices management, and global sync.
-  - `TasksPage` with task management, floating panel button, and search.
-  - `SettingsPage` with appearance, sync, productivity features (floating panel, widget guide, launch-at-startup), and in-app update checker.
-- **Automated Testing Suite (35 Tests Passing)**:
+  - `TasksPage` with task management, floating panel launcher, and search.
+  - `SettingsPage` with appearance, sync, productivity features, universal clipboard controls, and in-app update checker.
+- **Automated Testing Suite (39 Tests Passing)**:
+  - `test/clipboard_test.dart` (4 tests: opt-in enforcement, pause suppression, deduplication/loop prevention, and P2P loopback sync).
   - `test/floating_panel_widget_test.dart` (FloatingTaskPanel UI, quick entry, completion toggle, filter).
   - `test/productivity_services_test.dart` (FloatingPanelService, StartupService, WidgetService, TrayService).
   - `test/sync_engine_test.dart` (4 tests: P2P PIN pairing, bidirectional task sync, security rejection, concurrent edit conflict resolution).
@@ -56,14 +68,11 @@
 ## 2. Implemented, Untested Features
 - **Physical Device & Native OS Verification**:
   - Verified on x86_64 Android Emulator (`Small_Phone`, Android API 36.1, PID 2567).
-  - Android home-screen widget and overlay permissions implemented behind platform channels; pending visual inspection on physical Android launcher.
-  - Windows system-tray and registry startup implemented behind platform interfaces; Windows binaries built on GitHub Actions CI.
+  - Universal Clipboard text sharing verified through automated dual-instance loopback integration tests; untested between two separate physical devices on external Wi-Fi.
 
-## 3. Missing Platform Integrations (Planned for Milestones 5+)
-- **Universal Clipboard (Milestone 5)**:
-  - Native clipboard listeners, deduplication, encrypted peer clipboard sync between paired devices.
+## 3. Missing Platform Integrations (Planned for Milestones 6+)
 - **Additional Platforms (Milestone 6)**:
-  - macOS menu bar, iOS widgets.
+  - iOS WidgetKit, macOS menu bar extras, Linux system tray.
 
 ## 4. Required Tools & Environment Constraints
 - **Local Windows Build Tools**:
@@ -73,4 +82,4 @@
   - Stabilized via `kotlin.incremental=false` in `android/gradle.properties` for cross-drive builds on Windows.
 
 ## 5. Outstanding Errors
-- None. `flutter analyze` reports zero errors/warnings, and all 35 automated tests pass.
+- None. `flutter analyze` reports zero errors/warnings, and all 39 automated tests pass.

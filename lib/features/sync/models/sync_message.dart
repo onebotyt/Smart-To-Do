@@ -11,6 +11,7 @@ class SyncMessageType {
   static const String changes = 'changes';
   static const String ack = 'ack';
   static const String error = 'error';
+  static const String clipboardText = 'clipboard_text';
 }
 
 /// Represents a protocol message exchanged between SyncTask devices.
@@ -232,6 +233,25 @@ class SyncMessage {
       payload: {
         'code': code,
         'message': message,
+      },
+    );
+  }
+
+  factory SyncMessage.clipboardText({
+    required String senderId,
+    required String text,
+    required String hash,
+    int counter = 1,
+  }) {
+    return SyncMessage(
+      id: _uuid.v4(),
+      type: SyncMessageType.clipboardText,
+      counter: counter,
+      senderId: senderId,
+      payload: {
+        'text': text,
+        'hash': hash,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
       },
     );
   }

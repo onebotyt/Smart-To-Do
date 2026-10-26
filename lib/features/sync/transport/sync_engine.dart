@@ -56,6 +56,9 @@ class SyncEngine {
       StreamController<String>.broadcast();
   Stream<String> get statusStream => _statusController.stream;
 
+  /// Callback when verified clipboard text is received from a trusted peer.
+  void Function(String text, String senderId)? onClipboardReceived;
+
   SyncEngine({
     required TaskRepository taskRepo,
     required DeviceRepository deviceRepo,
@@ -286,6 +289,39 @@ class SyncEngine {
     }
   }
 
+  /// Broadcast copied text to all trusted paired devices over local network.
+  Future<int> broadcastClipboardText(String text, String hash) async {
+    final trusted = await _deviceRepo.getTrustedDevices();
+    final localDeviceId = await _deviceRepo.getLocalDeviceId();
+    int deliveredCount = 0;
+
+    for (final device in trusted) {
+      if (device.ipAddress == null || device.ipAddress!.isEmpty) continue;
+      Socket? socket;
+      try {
+        socket = await Socket.connect(
+          device.ipAddress!,
+          device.port,
+          timeout: const Duration(seconds: 3),
+        );
+        final msg = SyncMessage.clipboardText(
+          senderId: localDeviceId,
+          text: text,
+          hash: hash,
+        );
+        _sendMsg(socket, msg);
+        deliveredCount++;
+      } catch (_) {
+        // Silently ignore unreachable peers for real-time clipboard sync
+      } finally {
+        try {
+          await socket?.close();
+        } catch (_) {}
+      }
+    }
+    return deliveredCount;
+  }
+
   /// Handle incoming client connection to the server.
   void _handleIncomingClient(Socket socket) {
     final lines = utf8.decoder.bind(socket).transform(const LineSplitter());
@@ -341,6 +377,15 @@ class SyncEngine {
           await _handleInboundVersionVector(socket, msg);
         } else if (msg.type == SyncMessageType.changes) {
           await _handleInboundChanges(socket, msg);
+        } else if (msg.type == SyncMessageType.clipboardText) {
+          final text = msg.payload['text'] as String?;
+          if (text != null && text.isNotEmpty) {
+            onClipboardReceived?.call(text, msg.senderId);
+          }
+          _sendMsg(socket, SyncMessage.ack(
+            senderId: await _deviceRepo.getLocalDeviceId(),
+            count: 1,
+          ));
         } else if (msg.type == SyncMessageType.ack) {
           await _taskRepo.markChangesSynced();
         }

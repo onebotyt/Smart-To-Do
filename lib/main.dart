@@ -8,6 +8,7 @@ import 'app/app.dart';
 import 'data/database/app_database.dart';
 import 'data/repositories/device_repository.dart';
 import 'data/repositories/task_repository.dart';
+import 'features/clipboard/clipboard_controller.dart';
 import 'features/settings/settings_controller.dart';
 import 'features/sync/sync_controller.dart';
 import 'features/tasks/task_controller.dart';
@@ -26,6 +27,8 @@ Future<void> main() async {
   final deviceRepo = DeviceRepository(db);
   final syncController = SyncController(taskRepo: repo, deviceRepo: deviceRepo);
   await syncController.init();
+  final clipboardController = ClipboardController(syncEngine: syncController.engine);
+  await clipboardController.init();
   final settings = await SettingsController.load();
 
   runApp(
@@ -34,6 +37,7 @@ Future<void> main() async {
         ChangeNotifierProvider.value(value: settings),
         ChangeNotifierProvider(create: (_) => TaskController(repo, settings)..refresh()),
         ChangeNotifierProvider.value(value: syncController),
+        ChangeNotifierProvider.value(value: clipboardController),
       ],
       child: const SyncTaskApp(),
     ),
