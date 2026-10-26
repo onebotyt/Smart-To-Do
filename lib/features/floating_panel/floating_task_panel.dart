@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:synctask/data/models/task.dart';
 import 'package:synctask/features/sync/sync_controller.dart';
 import 'package:synctask/features/tasks/task_controller.dart';
+import '../settings/settings_controller.dart';
 
 class FloatingTaskPanel extends StatefulWidget {
   final VoidCallback? onClose;
@@ -49,6 +50,7 @@ class _FloatingTaskPanelState extends State<FloatingTaskPanel> {
   Widget build(BuildContext context) {
     final taskController = context.watch<TaskController>();
     final syncController = context.watch<SyncController>();
+    final settings = context.watch<SettingsController?>();
 
     final allTasks = taskController.tasks;
     final filteredTasks = _onlyPending
@@ -134,6 +136,19 @@ class _FloatingTaskPanelState extends State<FloatingTaskPanel> {
                             taskController.refresh();
                           }
                         },
+                      ),
+                    if (settings != null)
+                      IconButton(
+                        icon: Icon(
+                          settings.isAlwaysOnTop ? Icons.push_pin : Icons.push_pin_outlined,
+                          size: 16,
+                          color: settings.isAlwaysOnTop ? theme.colorScheme.primary : null,
+                        ),
+                        tooltip: settings.isAlwaysOnTop
+                            ? 'Pinned on top of all apps'
+                            : 'Pin on top of all apps',
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => settings.setAlwaysOnTop(!settings.isAlwaysOnTop),
                       ),
                     if (widget.onExpand != null)
                       IconButton(

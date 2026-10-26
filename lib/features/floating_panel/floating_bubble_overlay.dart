@@ -15,6 +15,7 @@ class FloatingBubbleOverlay extends StatefulWidget {
 
 class _FloatingBubbleOverlayState extends State<FloatingBubbleOverlay> {
   Offset? _position;
+  Offset? _panelPosition;
   bool _isExpanded = false;
 
   @override
@@ -42,6 +43,26 @@ class _FloatingBubbleOverlayState extends State<FloatingBubbleOverlay> {
     final clampedY = _position!.dy.clamp(60.0, screenSize.height - 120.0);
     final bubbleOffset = Offset(clampedX, clampedY);
 
+    const panelWidth = 340.0;
+    const panelHeight = 480.0;
+
+    // Position panel near the bubble, clamped within screen bounds
+    _panelPosition ??= Offset(
+      (bubbleOffset.dx - panelWidth + 56.0)
+          .clamp(16.0, (screenSize.width - panelWidth - 16.0).clamp(16.0, screenSize.width)),
+      (bubbleOffset.dy - panelHeight + 56.0)
+          .clamp(40.0, (screenSize.height - panelHeight - 20.0).clamp(40.0, screenSize.height)),
+    );
+
+    final clampedPanelX = _panelPosition!.dx.clamp(
+      16.0,
+      (screenSize.width - panelWidth - 16.0).clamp(16.0, screenSize.width),
+    );
+    final clampedPanelY = _panelPosition!.dy.clamp(
+      40.0,
+      (screenSize.height - panelHeight - 20.0).clamp(40.0, screenSize.height),
+    );
+
     final theme = Theme.of(context);
 
     return Stack(
@@ -55,29 +76,51 @@ class _FloatingBubbleOverlayState extends State<FloatingBubbleOverlay> {
               children: [
                 // Backdrop
                 GestureDetector(
-                  onTap: () => setState(() => _isExpanded = false),
+                  onTap: () {
+                    setState(() {
+                      _isExpanded = false;
+                      _panelPosition = null;
+                    });
+                  },
                   child: Container(
                     color: Colors.black45,
                   ),
                 ),
 
-                // Smoothly zooming FloatingTaskPanel
-                Center(
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0.0, end: 1.0),
-                    duration: const Duration(milliseconds: 220),
-                    curve: Curves.easeOutBack,
-                    builder: (context, val, child) {
-                      return Opacity(
-                        opacity: val.clamp(0.0, 1.0),
-                        child: Transform.scale(
-                          scale: 0.85 + (0.15 * val),
-                          child: child,
-                        ),
-                      );
+                // Draggable FloatingTaskPanel positioned where the bubble is
+                Positioned(
+                  left: clampedPanelX,
+                  top: clampedPanelY,
+                  child: GestureDetector(
+                    onPanUpdate: (details) {
+                      setState(() {
+                        _panelPosition = Offset(
+                          clampedPanelX + details.delta.dx,
+                          clampedPanelY + details.delta.dy,
+                        );
+                      });
                     },
-                    child: FloatingTaskPanel(
-                      onClose: () => setState(() => _isExpanded = false),
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0.0, end: 1.0),
+                      duration: const Duration(milliseconds: 240),
+                      curve: Curves.easeOutBack,
+                      builder: (context, val, child) {
+                        return Opacity(
+                          opacity: val.clamp(0.0, 1.0),
+                          child: Transform.scale(
+                            scale: 0.85 + (0.15 * val),
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: FloatingTaskPanel(
+                        onClose: () {
+                          setState(() {
+                            _isExpanded = false;
+                            _panelPosition = null;
+                          });
+                        },
+                      ),
                     ),
                   ),
                 ),
@@ -110,7 +153,15 @@ class _FloatingBubbleOverlayState extends State<FloatingBubbleOverlay> {
                   });
                 },
                 onTap: () {
-                  setState(() => _isExpanded = true);
+                  setState(() {
+                    _panelPosition = Offset(
+                      (bubbleOffset.dx - panelWidth + 56.0)
+                          .clamp(16.0, (screenSize.width - panelWidth - 16.0).clamp(16.0, screenSize.width)),
+                      (bubbleOffset.dy - panelHeight + 56.0)
+                          .clamp(40.0, (screenSize.height - panelHeight - 20.0).clamp(40.0, screenSize.height)),
+                    );
+                    _isExpanded = true;
+                  });
                 },
                 child: Material(
                   elevation: 8,

@@ -1,34 +1,46 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../platform/startup_service.dart';
+import '../../platform/window_service.dart';
 
 class SettingsController extends ChangeNotifier {
   SettingsController._(this._prefs);
   final SharedPreferences _prefs;
 
   static const List<Color> themePalette = [
-    Color(0xFF4F46E5), // Indigo (Classic)
-    Color(0xFF0284C7), // Ocean Blue
-    Color(0xFF0D9488), // Teal
-    Color(0xFF059669), // Emerald Green
-    Color(0xFFD97706), // Sunset Amber
-    Color(0xFF7C3AED), // Royal Purple
-    Color(0xFFE11D48), // Rose
-    Color(0xFF475569), // Slate
+    Color(0xFF6366F1), // Electric Indigo
+    Color(0xFF0284C7), // Deep Ocean Blue
+    Color(0xFF06B6D4), // Cyber Cyan
+    Color(0xFF10B981), // Emerald Mint
+    Color(0xFF84CC16), // Lime Green
+    Color(0xFFF59E0B), // Radiant Amber
+    Color(0xFFF97316), // Sunset Coral
+    Color(0xFF8B5CF6), // Royal Violet
+    Color(0xFFEC4899), // Neon Pink
+    Color(0xFF64748B), // Slate Titanium
   ];
 
   static const List<String> themeColorNames = [
-    'Indigo',
+    'Electric Indigo',
     'Ocean Blue',
-    'Teal',
-    'Emerald Green',
-    'Sunset Amber',
-    'Royal Purple',
-    'Rose',
-    'Slate',
+    'Cyber Cyan',
+    'Emerald Mint',
+    'Lime Green',
+    'Radiant Amber',
+    'Sunset Coral',
+    'Royal Violet',
+    'Neon Pink',
+    'Slate Titanium',
   ];
 
-  static Future<SettingsController> load() async =>
-      SettingsController._(await SharedPreferences.getInstance());
+  static Future<SettingsController> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final controller = SettingsController._(prefs);
+    if (controller.isAlwaysOnTop) {
+      PlatformWindowService.setAlwaysOnTop(true);
+    }
+    return controller;
+  }
 
   ThemeMode get themeMode =>
       ThemeMode.values.byName(_prefs.getString('themeMode') ?? 'system');
@@ -42,6 +54,9 @@ class SettingsController extends ChangeNotifier {
   bool get isAmoledDark => _prefs.getBool('isAmoledDark') ?? false;
   bool get isFloatingBubbleEnabled =>
       _prefs.getBool('isFloatingBubbleEnabled') ?? true;
+
+  bool get isAlwaysOnTop => _prefs.getBool('isAlwaysOnTop') ?? false;
+  bool get isLaunchAtStartup => _prefs.getBool('pref_launch_at_startup') ?? false;
 
   Future<void> setThemeMode(ThemeMode m) async {
     await _prefs.setString('themeMode', m.name);
@@ -70,6 +85,18 @@ class SettingsController extends ChangeNotifier {
 
   Future<void> setFloatingBubbleEnabled(bool enabled) async {
     await _prefs.setBool('isFloatingBubbleEnabled', enabled);
+    notifyListeners();
+  }
+
+  Future<void> setAlwaysOnTop(bool enabled) async {
+    await _prefs.setBool('isAlwaysOnTop', enabled);
+    await PlatformWindowService.setAlwaysOnTop(enabled);
+    notifyListeners();
+  }
+
+  Future<void> setLaunchAtStartup(bool enabled) async {
+    await _prefs.setBool('pref_launch_at_startup', enabled);
+    await PlatformStartupService().setLaunchAtStartup(enabled);
     notifyListeners();
   }
 }

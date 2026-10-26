@@ -151,6 +151,16 @@ class SettingsPage extends StatelessWidget {
                     ),
                     const Divider(height: 1),
 
+                    // Always On Top Toggle (Stay above other apps)
+                    SwitchListTile(
+                      secondary: const Icon(Icons.push_pin_outlined, color: Colors.blueAccent),
+                      title: const Text('Always On Top (Stay Above All Apps)'),
+                      subtitle: const Text('Keep window floating over browser, games, and other apps'),
+                      value: s.isAlwaysOnTop,
+                      onChanged: s.setAlwaysOnTop,
+                    ),
+                    const Divider(height: 1),
+
                     // Floating Panel Window Launcher
                     const _FloatingPanelTile(),
                     const Divider(height: 1),

@@ -115,6 +115,18 @@ class _TasksPageState extends State<TasksPage> {
               MaterialPageRoute(builder: (_) => const DevicesPage()),
             ),
           ),
+          Consumer<SettingsController>(
+            builder: (context, s, _) => IconButton(
+              icon: Icon(
+                s.isAlwaysOnTop ? Icons.push_pin : Icons.push_pin_outlined,
+                color: s.isAlwaysOnTop ? theme.colorScheme.primary : null,
+              ),
+              tooltip: s.isAlwaysOnTop
+                  ? 'Always on top (stays above all apps)'
+                  : 'Pin on top of all apps',
+              onPressed: () => s.setAlwaysOnTop(!s.isAlwaysOnTop),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.settings_outlined),
             tooltip: 'Settings',
