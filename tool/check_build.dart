@@ -187,7 +187,24 @@ Future<RunStatusSummary> checkStatus({
       for (final job in failedJobs) {
         final jobId = job['id'];
         final jobName = job['name'];
-        print('\nFetching error logs for job "$jobName" (ID: $jobId)...');
+        print('\nChecking annotations/errors for "$jobName" (ID: $jobId)...');
+
+        // Check annotations first
+        final annoUri = Uri.parse('https://api.github.com/repos/$repo/check-runs/$jobId/annotations');
+        final annoData = await _fetchJson(client, annoUri);
+        bool foundAnnotations = false;
+        if (annoData is List && annoData.isNotEmpty) {
+          foundAnnotations = true;
+          print('\n--- [Job Annotations: $jobName] ---');
+          for (final a in annoData) {
+            final path = a['path'] ?? '';
+            final line = a['start_line'] ?? '';
+            final msg = a['message'] ?? '';
+            final aTitle = a['title'] ?? '';
+            print('✖ $path:$line [$aTitle]\n  $msg\n');
+          }
+          print('--- [End Annotations] ---');
+        }
 
         final logText = await _fetchJobLogs(client, repo, jobId);
         if (logText != null && logText.isNotEmpty) {
@@ -195,8 +212,8 @@ Future<RunStatusSummary> checkStatus({
           print('\n--- [Log Output: $jobName] ---');
           print(errorSnippet);
           print('--- [End Log Output] ---\n');
-        } else {
-          print('Could not retrieve raw log text. View job directly at: ${job['html_url']}');
+        } else if (!foundAnnotations) {
+          print('View full failure log directly in your browser: ${job['html_url']}');
         }
       }
     }
@@ -241,9 +258,20 @@ String _statusSymbol(String status, String? conclusion) {
   return '⏱';
 }
 
+String? _getGithubToken() {
+  return Platform.environment['GITHUB_TOKEN'] ??
+      Platform.environment['GH_TOKEN'] ??
+      Platform.environment['HOMEBREW_GITHUB_API_TOKEN'];
+}
+
 Future<dynamic> _fetchJson(HttpClient client, Uri uri) async {
   try {
     final req = await client.getUrl(uri);
+    final token = _getGithubToken();
+    if (token != null && token.isNotEmpty) {
+      req.headers.set('Authorization', 'Bearer $token');
+    }
+    req.headers.set('Accept', 'application/vnd.github.v3+json');
     final res = await req.close();
     if (res.statusCode == 200) {
       final body = await utf8.decoder.bind(res).join();
@@ -257,6 +285,10 @@ Future<String?> _fetchJobLogs(HttpClient client, String repo, dynamic jobId) asy
   try {
     final uri = Uri.parse('https://api.github.com/repos/$repo/actions/jobs/$jobId/logs');
     final req = await client.getUrl(uri);
+    final token = _getGithubToken();
+    if (token != null && token.isNotEmpty) {
+      req.headers.set('Authorization', 'Bearer $token');
+    }
     req.followRedirects = true;
     final res = await req.close();
 
