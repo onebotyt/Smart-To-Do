@@ -63,8 +63,8 @@ class _DesktopFloatingBubbleState extends State<DesktopFloatingBubble>
               _showContextMenu(context, details.globalPosition);
             },
             child: Tooltip(
-              message: 'SyncTask • $pendingCount pending\nClick to open panel • Drag to move',
-              waitDuration: const Duration(milliseconds: 400),
+              message: 'SyncTask • $pendingCount pending\nClick: open panel • Right-click: options / exit • Drag to move',
+              waitDuration: const Duration(milliseconds: 350),
               child: AnimatedBuilder(
                 animation: _scaleAnimation,
                 builder: (context, child) {
@@ -147,6 +147,46 @@ class _DesktopFloatingBubbleState extends State<DesktopFloatingBubble>
                             ),
                           ),
                         ),
+
+                      // Quick close (X) button on hover
+                      if (_isHovered)
+                        Positioned(
+                          top: 4,
+                          left: 4,
+                          child: Listener(
+                            onPointerDown: (_) {
+                              PlatformWindowService.setWindowMode(AppWindowMode.normal);
+                            },
+                            child: MouseRegion(
+                              cursor: SystemMouseCursors.click,
+                              child: Tooltip(
+                                message: 'Close bubble (return to full app)',
+                                child: Container(
+                                  width: 22,
+                                  height: 22,
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.85),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white, width: 1.4),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                        color: Colors.black38,
+                                        blurRadius: 3,
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.close_rounded,
+                                      color: Colors.white,
+                                      size: 14,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -179,7 +219,7 @@ class _DesktopFloatingBubbleState extends State<DesktopFloatingBubble>
             children: [
               Icon(Icons.open_in_full_rounded, size: 18),
               SizedBox(width: 8),
-              Text('Open Full App Window'),
+              Text('Close Bubble (Open Full App)'),
             ],
           ),
         ),
@@ -190,7 +230,7 @@ class _DesktopFloatingBubbleState extends State<DesktopFloatingBubble>
             children: [
               Icon(Icons.power_settings_new_rounded, size: 18, color: Colors.redAccent),
               SizedBox(width: 8),
-              Text('Exit SyncTask', style: TextStyle(color: Colors.redAccent)),
+              Text('Exit SyncTask Completely', style: TextStyle(color: Colors.redAccent)),
             ],
           ),
         ),

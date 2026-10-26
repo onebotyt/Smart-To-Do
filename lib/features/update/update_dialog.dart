@@ -123,18 +123,42 @@ class _UpdateDownloadDialogState extends State<UpdateDownloadDialog>
   Future<void> _executeInstall(File downloadedFile) async {
     try {
       if (Platform.isWindows) {
+        final currentExe = Platform.resolvedExecutable;
         if (downloadedFile.path.endsWith('.exe')) {
-          await Process.run('cmd.exe', ['/c', 'start', '', downloadedFile.path]);
+          final installerPath = downloadedFile.path;
+          final runnerScript = File('${downloadedFile.parent.path}/silent_update.bat');
+          await runnerScript.writeAsString('''@echo off
+timeout /t 1 /nobreak >nul
+taskkill /F /IM synctask.exe >nul 2>&1
+timeout /t 1 /nobreak >nul
+start "" /wait "$installerPath" /VERYSILENT /SUPPRESSMSGBOXES /FORCECLOSEAPPLICATIONS /NORESTART
+timeout /t 1 /nobreak >nul
+set "CURRENT_EXE=$currentExe"
+set "DEFAULT_EXE=%LOCALAPPDATA%\\Programs\\SyncTask\\synctask.exe"
+if exist "%CURRENT_EXE%" (
+    start "" "%CURRENT_EXE%"
+) else if exist "%DEFAULT_EXE%" (
+    start "" "%DEFAULT_EXE%"
+)
+del "%~f0" >nul 2>&1
+''');
+          await Process.start('cmd.exe', ['/c', runnerScript.path], mode: ProcessStartMode.detached);
           exit(0);
         } else {
-          // Automatically extract update and run installer
-          final installDir = downloadedFile.parent.path;
-          final powershellCmd =
-              'Expand-Archive -Path "${downloadedFile.path}" -DestinationPath "$installDir\\synctask_new" -Force; '
-              'if (Test-Path "$installDir\\synctask_new\\Install-SyncTask.cmd") { Start-Process cmd.exe -ArgumentList "/c `"$installDir\\synctask_new\\Install-SyncTask.cmd`"" } else { Start-Process "$installDir\\synctask_new\\synctask.exe" }';
-
-          await Process.run('powershell', ['-Command', powershellCmd]);
-          exit(0); // Close current app instance so installer/new version takes over
+          // Portable ZIP update: Extract directly to app directory and restart
+          final targetDir = File(currentExe).parent.path;
+          final runnerScript = File('${downloadedFile.parent.path}/silent_zip_update.bat');
+          await runnerScript.writeAsString('''@echo off
+timeout /t 1 /nobreak >nul
+taskkill /F /IM synctask.exe >nul 2>&1
+timeout /t 1 /nobreak >nul
+powershell -NoProfile -Command "Expand-Archive -Path '${downloadedFile.path}' -DestinationPath '$targetDir' -Force"
+timeout /t 1 /nobreak >nul
+start "" "$currentExe"
+del "%~f0" >nul 2>&1
+''');
+          await Process.start('cmd.exe', ['/c', runnerScript.path], mode: ProcessStartMode.detached);
+          exit(0);
         }
       } else if (Platform.isAndroid) {
         // Direct native APK installation prompt

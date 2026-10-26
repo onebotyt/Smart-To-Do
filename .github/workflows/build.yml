@@ -94,7 +94,7 @@ jobs:
 
       - name: Compile Windows Setup Installer
         run: |
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" windows\installer.iss
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=0.1.${{ github.run_number }}" windows\installer.iss
 
       - name: Sign Setup Installer
         shell: pwsh

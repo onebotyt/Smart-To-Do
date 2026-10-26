@@ -194,6 +194,62 @@ class _FloatingBubbleOverlayState extends State<FloatingBubbleOverlay>
                   _panelPosition.value = Offset(initialPanelX, initialPanelY);
                   setState(() => _isExpanded = true);
                 },
+                onLongPress: () {
+                  showModalBottomSheet<void>(
+                    context: context,
+                    backgroundColor: theme.colorScheme.surface,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                    ),
+                    builder: (sheetContext) {
+                      return SafeArea(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12.0),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 36,
+                                height: 4,
+                                margin: const EdgeInsets.only(bottom: 16),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                              ListTile(
+                                leading: const Icon(Icons.dashboard_customize_outlined),
+                                title: const Text('Open Tasks Panel'),
+                                onTap: () {
+                                  Navigator.pop(sheetContext);
+                                  setState(() => _isExpanded = true);
+                                },
+                              ),
+                              ListTile(
+                                leading: const Icon(Icons.visibility_off_outlined, color: Colors.redAccent),
+                                title: const Text(
+                                  'Hide Floating Bubble',
+                                  style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600),
+                                ),
+                                subtitle: const Text('You can turn it back on anytime in Settings'),
+                                onTap: () {
+                                  Navigator.pop(sheetContext);
+                                  context.read<SettingsController>().setFloatingBubbleEnabled(false);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Floating bubble hidden. Re-enable anytime in Settings.'),
+                                      duration: Duration(seconds: 3),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
                 child: Material(
                   elevation: 8,
                   shape: const CircleBorder(),

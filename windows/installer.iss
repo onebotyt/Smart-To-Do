@@ -1,5 +1,7 @@
 #define MyAppName "SyncTask"
+#ifndef MyAppVersion
 #define MyAppVersion "0.1.0"
+#endif
 #define MyAppPublisher "Girdhar Dhami (OneBotYT)"
 #define MyAppURL "https://github.com/onebotyt/Smart-To-Do"
 #define MyAppExeName "synctask.exe"
@@ -28,6 +30,9 @@ Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequired=lowest
+CloseApplications=force
+RestartApplications=yes
+CloseApplicationsFilter=synctask.exe
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
