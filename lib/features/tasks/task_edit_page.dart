@@ -133,7 +133,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
               ]),
             ),
             DropdownButtonFormField<int>(
-              value: _priority,
+              initialValue: _priority,
               decoration: const InputDecoration(labelText: 'Priority'),
               items: const [
                 DropdownMenuItem(value: 0, child: Text('Low')),
@@ -143,7 +143,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
               onChanged: (v) => setState(() => _priority = v ?? 1),
             ),
             DropdownButtonFormField<Recurrence>(
-              value: _recurrence,
+              initialValue: _recurrence,
               decoration: const InputDecoration(labelText: 'Repeat'),
               items: Recurrence.values
                   .map((r) => DropdownMenuItem(value: r, child: Text(r.name)))

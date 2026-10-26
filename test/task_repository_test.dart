@@ -5,6 +5,7 @@ import 'package:synctask/data/models/task.dart';
 import 'package:synctask/data/repositories/task_repository.dart';
 
 void main() {
+  late Database db;
   late TaskRepository repo;
 
   setUpAll(() {
@@ -13,8 +14,12 @@ void main() {
   });
 
   setUp(() async {
-    final db = await AppDatabase.open(path: inMemoryDatabasePath);
+    db = await AppDatabase.open(path: inMemoryDatabasePath);
     repo = TaskRepository(db, await AppDatabase.deviceId(db));
+  });
+
+  tearDown(() async {
+    await db.close();
   });
 
   test('create bumps revision and writes change log', () async {
