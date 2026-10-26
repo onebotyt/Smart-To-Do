@@ -123,6 +123,14 @@ void FlutterWindow::SetWindowMode(const std::string& mode) {
 
     current_mode_ = "normal";
   }
+
+  if (window_channel_) {
+    window_channel_->InvokeMethod(
+        "onWindowModeChanged",
+        std::make_unique<flutter::EncodableValue>(flutter::EncodableMap{
+            {flutter::EncodableValue("mode"),
+             flutter::EncodableValue(current_mode_)}}));
+  }
 }
 
 bool FlutterWindow::OnCreate() {
@@ -236,6 +244,21 @@ bool FlutterWindow::OnCreate() {
         bubble_y_ = rect.top;
       }
       result->Success(flutter::EncodableValue(true));
+    } else if (call.method_name() == "exitApp") {
+      close_to_bubble_ = false;
+      DestroyWindow(hwnd);
+      PostQuitMessage(0);
+      result->Success(flutter::EncodableValue(true));
+    } else if (call.method_name() == "setCloseToBubble") {
+      bool enabled = true;
+      if (const auto* args = std::get_if<flutter::EncodableMap>(call.arguments())) {
+        auto it = args->find(flutter::EncodableValue("enabled"));
+        if (it != args->end() && std::holds_alternative<bool>(it->second)) {
+          enabled = std::get<bool>(it->second);
+        }
+      }
+      close_to_bubble_ = enabled;
+      result->Success(flutter::EncodableValue(true));
     } else {
       result->NotImplemented();
     }
@@ -291,6 +314,21 @@ bool FlutterWindow::OnCreate() {
         RegCloseKey(hKey);
       }
       result->Success(flutter::EncodableValue(true));
+    } else if (call.method_name() == "exitApp") {
+      close_to_bubble_ = false;
+      DestroyWindow(hwnd);
+      PostQuitMessage(0);
+      result->Success(flutter::EncodableValue(true));
+    } else if (call.method_name() == "setCloseToBubble") {
+      bool enabled = true;
+      if (const auto* args = std::get_if<flutter::EncodableMap>(call.arguments())) {
+        auto it = args->find(flutter::EncodableValue("enabled"));
+        if (it != args->end() && std::holds_alternative<bool>(it->second)) {
+          enabled = std::get<bool>(it->second);
+        }
+      }
+      close_to_bubble_ = enabled;
+      result->Success(flutter::EncodableValue(true));
     } else {
       result->NotImplemented();
     }
@@ -329,6 +367,13 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   }
 
   switch (message) {
+    case WM_CLOSE: {
+      if (close_to_bubble_) {
+        SetWindowMode("bubble");
+        return 0;
+      }
+      break;
+    }
     case WM_FONTCHANGE:
       flutter_controller_->engine()->ReloadSystemFonts();
       break;

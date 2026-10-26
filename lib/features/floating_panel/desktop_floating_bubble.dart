@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -188,8 +187,8 @@ class _DesktopFloatingBubbleState extends State<DesktopFloatingBubble>
           ),
         ),
         const PopupMenuDivider(),
-        PopupMenuItem(
-          onTap: () => exit(0),
+        PopupMenuItem<void>(
+          onTap: () => PlatformWindowService.exitApp(),
           child: const Row(
             children: [
               Icon(Icons.power_settings_new_rounded, size: 18, color: Colors.redAccent),

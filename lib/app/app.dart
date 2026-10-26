@@ -81,6 +81,8 @@ class SyncTaskApp extends StatelessWidget {
             onClose: () => PlatformWindowService.setWindowMode(AppWindowMode.bubble),
             onExpand: () => PlatformWindowService.setWindowMode(AppWindowMode.normal),
           );
+        } else if (Platform.isWindows) {
+          content = const TasksPage();
         } else {
           content = const FloatingBubbleOverlay(child: TasksPage());
         }

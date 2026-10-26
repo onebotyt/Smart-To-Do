@@ -16,6 +16,25 @@ class PlatformWindowService {
 
   static bool get isSupported => Platform.isWindows;
 
+  static void init() {
+    if (!isSupported) return;
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == 'onWindowModeChanged') {
+        final args = call.arguments;
+        if (args is Map) {
+          final modeStr = args['mode'] as String?;
+          if (modeStr != null) {
+            final mode = AppWindowMode.values.firstWhere(
+              (m) => m.name == modeStr,
+              orElse: () => AppWindowMode.normal,
+            );
+            currentMode.value = mode;
+          }
+        }
+      }
+    });
+  }
+
   static Future<bool> setAlwaysOnTop(bool alwaysOnTop) async {
     if (!isSupported) return false;
     try {
@@ -74,6 +93,24 @@ class PlatformWindowService {
     if (!isSupported) return;
     try {
       await _channel.invokeMethod('startDragging');
+    } catch (_) {}
+  }
+
+  static Future<void> exitApp() async {
+    if (!isSupported) {
+      exit(0);
+    }
+    try {
+      await _channel.invokeMethod('exitApp');
+    } catch (_) {
+      exit(0);
+    }
+  }
+
+  static Future<void> setCloseToBubble(bool enabled) async {
+    if (!isSupported) return;
+    try {
+      await _channel.invokeMethod('setCloseToBubble', {'enabled': enabled});
     } catch (_) {}
   }
 }

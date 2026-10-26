@@ -22,6 +22,8 @@ Future<void> main([List<String> args = const []]) async {
     databaseFactory = databaseFactoryFfi;
   }
 
+  PlatformWindowService.init();
+
   final isBubbleArg = args.contains('--floating-bubble') || args.contains('--bubble');
   if (isBubbleArg) {
     PlatformWindowService.currentMode.value = AppWindowMode.bubble;

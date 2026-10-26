@@ -42,6 +42,7 @@ class FlutterWindow : public Win32Window {
   int bubble_x_ = -1;
   int bubble_y_ = -1;
   bool is_always_on_top_ = true;
+  bool close_to_bubble_ = true;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_
