@@ -1,6 +1,8 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 
+import '../database/conflict_resolver.dart';
+import '../models/conflict_log_entry.dart';
 import '../models/task.dart';
 
 /// All task reads/writes go through here. Every write bumps the revision,
@@ -110,6 +112,98 @@ class TaskRepository {
   /// Changes not yet acknowledged by peers (used by the future sync engine).
   Future<List<Map<String, Object?>>> pendingChanges() =>
       _db.query('change_log', where: 'synced = 0', orderBy: 'seq ASC');
+
+  /// Applies an incoming remote task, executing conflict resolution and logging
+  /// any overridden values transactionally.
+  Future<Task> applyRemoteTask(Task remote) async {
+    return _db.transaction((txn) async {
+      final rows =
+          await txn.query('tasks', where: 'id = ?', whereArgs: [remote.id]);
+      if (rows.isEmpty) {
+        await txn.insert('tasks', remote.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace);
+        await txn.insert('change_log', {
+          'task_id': remote.id,
+          'op': 'sync_insert',
+          'revision': remote.revision,
+          'device_id': remote.deviceId,
+          'at': _now(),
+          'synced': 1,
+        });
+        return remote;
+      }
+
+      final local = Task.fromMap(rows.first);
+      final resolution = ConflictResolver.resolve(
+        local: local,
+        remote: remote,
+        idGenerator: () => const Uuid().v4(),
+        now: _now(),
+      );
+
+      await txn.insert('tasks', resolution.task.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
+
+      for (final conflict in resolution.conflicts) {
+        await txn.insert('conflict_log', conflict.toMap());
+      }
+
+      await txn.insert('change_log', {
+        'task_id': resolution.task.id,
+        'op': 'sync_apply',
+        'revision': resolution.task.revision,
+        'device_id': resolution.task.deviceId,
+        'at': resolution.task.updatedAt,
+        'synced': 1,
+      });
+
+      return resolution.task;
+    });
+  }
+
+  /// Purges tombstones older than [retention] that have been synced.
+  Future<int> purgeTombstones(
+      {Duration retention = const Duration(days: 30)}) async {
+    final threshold = _now() - retention.inMilliseconds;
+    return _db.transaction((txn) async {
+      final rows = await txn.rawQuery(
+        'SELECT id FROM tasks WHERE deleted = 1 AND updated_at < ? AND id NOT IN (SELECT task_id FROM change_log WHERE synced = 0)',
+        [threshold],
+      );
+      if (rows.isEmpty) return 0;
+      final ids = rows.map((r) => r['id'] as String).toList();
+      final inClause = List.filled(ids.length, '?').join(',');
+      return txn.delete('tasks', where: 'id IN ($inClause)', whereArgs: ids);
+    });
+  }
+
+  /// Marks change_log rows up to [maxSeq] as synced.
+  Future<int> markChangesSynced(int maxSeq) => _db.update(
+        'change_log',
+        {'synced': 1},
+        where: 'seq <= ?',
+        whereArgs: [maxSeq],
+      );
+
+  /// Retrieves unacknowledged changes in monotonic sequence order.
+  Future<List<Map<String, Object?>>> getUnsyncedChanges({int limit = 100}) =>
+      _db.query(
+        'change_log',
+        where: 'synced = 0',
+        orderBy: 'seq ASC',
+        limit: limit,
+      );
+
+  /// Retrieves recorded conflict log entries for inspection or UI display.
+  Future<List<ConflictLogEntry>> getConflicts({String? taskId}) async {
+    final rows = await _db.query(
+      'conflict_log',
+      where: taskId != null ? 'task_id = ?' : null,
+      whereArgs: taskId != null ? [taskId] : null,
+      orderBy: 'created_at DESC',
+    );
+    return rows.map(ConflictLogEntry.fromMap).toList();
+  }
 
   Future<Task> _save(Transaction txn, Task task, String op) async {
     final saved = task.copyWith(

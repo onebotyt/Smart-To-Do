@@ -6,7 +6,7 @@ import 'package:uuid/uuid.dart';
 /// Opens the local SQLite database and owns the schema.
 /// Schema changes MUST go through a new migration (bump [version]).
 class AppDatabase {
-  static const int version = 1;
+  static const int version = 2;
 
   /// Pass [path] (e.g. inMemoryDatabasePath) in tests.
   static Future<Database> open({String? path}) async {
@@ -46,8 +46,35 @@ class AppDatabase {
           )''');
         await db.execute(
             'CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+
+        // Apply v2 migrations for fresh databases
+        await _migrateToV2(db);
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await _migrateToV2(db);
+        }
       },
     );
+  }
+
+  static Future<void> _migrateToV2(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS conflict_log (
+        id TEXT PRIMARY KEY,
+        task_id TEXT NOT NULL,
+        field TEXT NOT NULL,
+        local_value TEXT,
+        remote_value TEXT,
+        resolved_value TEXT,
+        created_at INTEGER NOT NULL
+      )''');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_tasks_deleted ON tasks(deleted)');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_change_log_synced ON change_log(synced)');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_conflict_log_task ON conflict_log(task_id)');
   }
 
   /// Stable per-install device ID, created on first run.
