@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/capabilities.dart';
+import '../../platform/floating_panel_service.dart';
+import '../../platform/startup_service.dart';
 import '../../platform/update_service.dart';
+import '../floating_panel/floating_task_panel.dart';
 import '../sync/devices_page.dart';
 import 'settings_controller.dart';
 
@@ -58,15 +61,120 @@ class SettingsPage extends StatelessWidget {
               ],
             ),
           ),
-          const _Header('Platform features'),
-          _Cap('Floating panel', Capabilities.floatingPanel),
-          _Cap('Home-screen widgets', Capabilities.homeWidgets),
-          _Cap('Clipboard sharing', Capabilities.clipboardSync),
-          _Cap('Launch at startup', Capabilities.launchAtStartup),
+          const _Header('Productivity & Platform Features'),
+          const _FloatingPanelTile(),
+          const _WidgetTile(),
+          const _StartupTile(),
+          _Cap('Universal clipboard (Milestone 5)', Capabilities.clipboardSync),
           const _Header('App updates'),
           const _UpdateTile(),
         ],
       ),
+    );
+  }
+}
+
+class _FloatingPanelTile extends StatelessWidget {
+  const _FloatingPanelTile();
+
+  @override
+  Widget build(BuildContext context) {
+    final service = PlatformFloatingPanelService();
+    return ListTile(
+      leading: const Icon(Icons.picture_in_picture_alt),
+      title: const Text('Floating task panel'),
+      subtitle: const Text('Compact, always-on-top quick entry panel'),
+      trailing: const Icon(Icons.open_in_new, size: 20),
+      onTap: () async {
+        final hasPerm = await service.hasPermission();
+        if (!hasPerm && context.mounted) {
+          await service.requestPermission();
+        }
+        if (context.mounted) {
+          showDialog(
+            context: context,
+            barrierColor: Colors.black38,
+            builder: (ctx) => Center(
+              child: FloatingTaskPanel(
+                onClose: () => Navigator.pop(ctx),
+                onExpand: () => Navigator.pop(ctx),
+              ),
+            ),
+          );
+        }
+      },
+    );
+  }
+}
+
+class _WidgetTile extends StatelessWidget {
+  const _WidgetTile();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: const Icon(Icons.widgets_outlined),
+      title: const Text('Home-screen widget'),
+      subtitle: const Text('Android native widget with live pending tasks'),
+      trailing: const Icon(Icons.info_outline, size: 20),
+      onTap: () {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Add Home-Screen Widget'),
+            content: const Text(
+              'To add the SyncTask widget:\n\n'
+              '1. Long-press any empty space on your Android home screen.\n'
+              '2. Select "Widgets".\n'
+              '3. Scroll to "SyncTask" and drag the widget to your home screen.\n\n'
+              'The widget updates automatically whenever tasks change!',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Got it'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _StartupTile extends StatefulWidget {
+  const _StartupTile();
+
+  @override
+  State<_StartupTile> createState() => _StartupTileState();
+}
+
+class _StartupTileState extends State<_StartupTile> {
+  final _service = PlatformStartupService();
+  bool _enabled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final val = await _service.isLaunchAtStartupEnabled();
+    if (mounted) setState(() => _enabled = val);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SwitchListTile(
+      secondary: const Icon(Icons.rocket_launch_outlined),
+      title: const Text('Launch at startup'),
+      subtitle: const Text('Start SyncTask automatically in background'),
+      value: _enabled,
+      onChanged: (val) async {
+        setState(() => _enabled = val);
+        await _service.setLaunchAtStartup(val);
+      },
     );
   }
 }

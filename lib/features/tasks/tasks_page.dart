@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/models/task.dart';
+import '../floating_panel/floating_task_panel.dart';
 import '../settings/settings_page.dart';
 import '../sync/devices_page.dart';
 import 'task_controller.dart';
@@ -27,6 +28,22 @@ class TasksPage extends StatelessWidget {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_in_picture_alt_outlined),
+            tooltip: 'Floating Panel',
+            onPressed: () {
+              showDialog(
+                context: context,
+                barrierColor: Colors.black38,
+                builder: (ctx) => Center(
+                  child: FloatingTaskPanel(
+                    onClose: () => Navigator.pop(ctx),
+                    onExpand: () => Navigator.pop(ctx),
+                  ),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.devices),
             tooltip: 'Devices & Sync',

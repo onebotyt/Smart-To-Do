@@ -1,4 +1,4 @@
-# Known Limitations and Implementation Status (Milestones 1, 2 & 3)
+# Known Limitations and Implementation Status (Milestones 1, 2, 3 & 4)
 
 ## 1. Implemented Features
 - **Local Database Architecture & Migrations (Milestones 1 & 2)**:
@@ -20,27 +20,27 @@
     - Immediate rejection of revoked or unknown peers (`AUTH_FAILED`) without data leakage.
     - Bidirectional version vector exchange with `${revision}:${deviceId}` composite entries for concurrent edit detection.
     - Delta streaming, conflict resolution via `ConflictResolver`, and tombstone propagation.
+- **Native Productivity Features (Milestone 4)**:
+  - `FloatingTaskPanel` compact quick-entry overlay with priority selector, one-tap checkboxes, quick sync, and pending filters.
+  - Platform service abstraction layer in `lib/platform/`:
+    - `FloatingPanelService`: overlay window management and `SYSTEM_ALERT_WINDOW` permission flow.
+    - `TrayService`: system tray lifecycle, tooltips, and background minimize behavior.
+    - `StartupService`: launch-at-startup configuration.
+    - `WidgetService`: real-time native home-screen widget synchronization.
+  - Android native productivity integration:
+    - `SYSTEM_ALERT_WINDOW` overlay permission handling in `MainActivity.kt`.
+    - Android native home-screen widget (`SyncTaskWidgetProvider.kt`, `widget_sync_task.xml`) showing pending task badge and top pending task checklist.
+    - Automatic widget updates whenever tasks change in `TaskController`.
+  - Windows productivity integration:
+    - Launch-at-startup settings toggle and background tray architecture.
 - **State Management & UI**:
   - `SyncController` managing socket lifecycle, LAN discovery, pairing state, and device synchronization.
-  - `DevicesPage` providing:
-    - Local device info card with inline rename and "Show Pairing Code" modal.
-    - Real-time list of discovered Wi-Fi peers with quick-pair action.
-    - Paired devices management with inline "Sync Now", trust toggle, and device removal.
-    - Global "Sync All" action in AppBar.
-  - `TaskController` managing search, categories, completion filters, and task CRUD.
-  - `SettingsController` persisting ThemeMode (System, Light, Dark), showCompleted toggle, and default priority via `SharedPreferences`.
-  - Responsive `TasksPage` featuring:
-    - Search text field.
-    - Material 3 `SegmentedButton` view toggle: All, Pending, Completed.
-    - Category filter chips (horizontally scrollable, dynamic from tasks).
-    - Task list tiles with priority flags, due dates, recurrence badges, strike-through completion, and swipe-to-delete.
-  - `TaskEditPage` with form validation, date/time picker, priority selector, and repeat selector.
-  - `SettingsPage` with appearance controls, platform capability indicators, link to Devices & Sync, and in-app update checker.
-- **In-App Update Delivery & CI/CD**:
-  - `UpdateService` checking GitHub Releases API (`onebotyt/Smart-To-Do`) for new releases.
-  - Settings page one-click update launcher for Android APK and Windows application.
-  - Automated GitHub Actions release pipeline (`.github/workflows/build.yml`) auto-numbering releases (`v0.1.<run_number>`) and publishing Android and Windows assets.
-- **Automated Testing Suite (30 Tests Passing)**:
+  - `DevicesPage` with local device info, Wi-Fi peer discovery, paired devices management, and global sync.
+  - `TasksPage` with task management, floating panel button, and search.
+  - `SettingsPage` with appearance, sync, productivity features (floating panel, widget guide, launch-at-startup), and in-app update checker.
+- **Automated Testing Suite (35 Tests Passing)**:
+  - `test/floating_panel_widget_test.dart` (FloatingTaskPanel UI, quick entry, completion toggle, filter).
+  - `test/productivity_services_test.dart` (FloatingPanelService, StartupService, WidgetService, TrayService).
   - `test/sync_engine_test.dart` (4 tests: P2P PIN pairing, bidirectional task sync, security rejection, concurrent edit conflict resolution).
   - `test/sync_message_test.dart` (4 tests: serialization, schema validation, message types, error handling).
   - `test/device_repository_test.dart` (5 tests: CRUD, trust filtering, network address updates, deletion, local device name).
@@ -54,18 +54,16 @@
   - Clean `flutter analyze` (0 issues).
 
 ## 2. Implemented, Untested Features
-- **Physical Device Execution**:
+- **Physical Device & Native OS Verification**:
   - Verified on x86_64 Android Emulator (`Small_Phone`, Android API 36.1, PID 2567).
-  - TCP socket sync and UDP discovery verified through automated loopback integration tests; untested across two separate physical devices on external Wi-Fi.
+  - Android home-screen widget and overlay permissions implemented behind platform channels; pending visual inspection on physical Android launcher.
+  - Windows system-tray and registry startup implemented behind platform interfaces; Windows binaries built on GitHub Actions CI.
 
-## 3. Missing Platform Integrations (Planned for Milestones 4+)
-- **Windows Desktop Native Integration (Milestone 4)**:
-  - System-tray icon, always-on-top floating task panel, launch-at-startup.
-- **Android Native Productivity Integration (Milestone 4 & 6)**:
-  - Android home-screen AppWidget (`AppWidgetProvider`).
-  - Android floating overlay window (`SYSTEM_ALERT_WINDOW` foreground service).
+## 3. Missing Platform Integrations (Planned for Milestones 5+)
 - **Universal Clipboard (Milestone 5)**:
-  - Native clipboard listeners, deduplication, encrypted peer clipboard sync.
+  - Native clipboard listeners, deduplication, encrypted peer clipboard sync between paired devices.
+- **Additional Platforms (Milestone 6)**:
+  - macOS menu bar, iOS widgets.
 
 ## 4. Required Tools & Environment Constraints
 - **Local Windows Build Tools**:
@@ -75,4 +73,4 @@
   - Stabilized via `kotlin.incremental=false` in `android/gradle.properties` for cross-drive builds on Windows.
 
 ## 5. Outstanding Errors
-- None. `flutter analyze` reports zero errors/warnings, and all 30 automated tests pass.
+- None. `flutter analyze` reports zero errors/warnings, and all 35 automated tests pass.

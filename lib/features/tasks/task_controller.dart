@@ -2,17 +2,20 @@ import 'package:flutter/foundation.dart';
 
 import '../../data/models/task.dart';
 import '../../data/repositories/task_repository.dart';
+import '../../platform/widget_service.dart';
 import '../settings/settings_controller.dart';
 
 enum TaskFilter { all, pending, completed }
 
 class TaskController extends ChangeNotifier {
-  TaskController(this._repo, this._settings) {
+  TaskController(this._repo, this._settings, [WidgetService? widgetService])
+      : _widgetService = widgetService ?? PlatformWidgetService() {
     _settings.addListener(refresh);
   }
 
   final TaskRepository _repo;
   final SettingsController _settings;
+  final WidgetService? _widgetService;
 
   List<Task> tasks = [];
   List<String> categories = [];
@@ -42,6 +45,14 @@ class TaskController extends ChangeNotifier {
       category: selectedCategory,
       query: query,
     );
+
+    // Update native home-screen widget
+    final pendingTasks = tasks.where((t) => !t.completed).toList();
+    _widgetService?.updateWidget(
+      pendingCount: pendingTasks.length,
+      topTaskTitles: pendingTasks.map((t) => t.title).toList(),
+    );
+
     notifyListeners();
   }
 
@@ -79,6 +90,24 @@ class TaskController extends ChangeNotifier {
     await refresh();
   }
 
+  /// Alias for add
+  Future<void> create({
+    required String title,
+    String notes = '',
+    int? dueAt,
+    int? priority,
+    String category = '',
+    Recurrence recurrence = Recurrence.none,
+  }) =>
+      add(
+        title: title,
+        notes: notes,
+        dueAt: dueAt,
+        priority: priority,
+        category: category,
+        recurrence: recurrence,
+      );
+
   Future<void> save(Task t) async {
     await _repo.update(t);
     await refresh();
@@ -88,6 +117,9 @@ class TaskController extends ChangeNotifier {
     await _repo.toggleComplete(t);
     await refresh();
   }
+
+  /// Alias for toggle
+  Future<void> toggleComplete(Task t) => toggle(t);
 
   Future<void> remove(Task t) async {
     await _repo.delete(t.id);
