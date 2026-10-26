@@ -276,6 +276,10 @@ Future<dynamic> _fetchJson(HttpClient client, Uri uri) async {
     if (res.statusCode == 200) {
       final body = await utf8.decoder.bind(res).join();
       return jsonDecode(body);
+    } else if (res.statusCode == 403) {
+      print('\n[Warning] GitHub API unauthenticated rate limit reached (HTTP 403).');
+      print('Set GITHUB_TOKEN environment variable or monitor runs at:');
+      print('https://github.com/onebotyt/Smart-To-Do/actions\n');
     }
   } catch (_) {}
   return null;
