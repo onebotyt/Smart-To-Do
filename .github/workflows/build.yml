@@ -78,10 +78,18 @@ jobs:
       - name: Build Windows Desktop Release
         run: flutter build windows --release
 
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Compile Windows Setup Installer
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" windows\installer.iss
+
       - name: Compress Windows bundle
         shell: pwsh
         run: |
           Copy-Item "windows\Install-SyncTask.cmd" -Destination "build\windows\x64\runner\Release\"
+          Copy-Item "windows\Install-SyncTask.ps1" -Destination "build\windows\x64\runner\Release\"
           Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "synctask-windows-release.zip"
 
       - name: Upload Windows Bundle
@@ -89,6 +97,12 @@ jobs:
         with:
           name: synctask-windows-release
           path: synctask-windows-release.zip
+
+      - name: Upload Windows Setup Installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: synctask-windows-setup
+          path: SyncTask-Setup.exe
 
   release:
     name: Publish Auto-Versioned GitHub Release
@@ -113,6 +127,11 @@ jobs:
         with:
           name: synctask-windows-release
 
+      - name: Download Windows Setup
+        uses: actions/download-artifact@v4
+        with:
+          name: synctask-windows-setup
+
       - name: Prepare Assets with Auto-Versioning
         run: |
           VERSION="v0.1.${{ github.run_number }}"
@@ -123,6 +142,8 @@ jobs:
           cp app-arm64-v8a-release.apk "SyncTask-${VERSION}-android-arm64.apk"
           cp synctask-windows-release.zip "SyncTask-${VERSION}-windows.zip"
           cp synctask-windows-release.zip "SyncTask-Windows.zip"
+          cp SyncTask-Setup.exe "SyncTask-${VERSION}-windows-setup.exe"
+          cp SyncTask-Setup.exe "SyncTask-Setup.exe"
 
       - name: Create or Update GitHub Release
         uses: softprops/action-gh-release@v2
@@ -137,15 +158,18 @@ jobs:
             Automated production release generated from commit `${{ github.sha }}`.
 
             ### 🚀 Direct One-Click Downloads
+            - 💻 **Windows Desktop Installer (Recommended)**: [SyncTask-Setup.exe](https://github.com/onebotyt/Smart-To-Do/releases/download/${{ env.VERSION_TAG }}/SyncTask-Setup.exe) *(Standard Windows Setup Wizard)*
+            - 💻 **Windows Portable Bundle**: [SyncTask-Windows.zip](https://github.com/onebotyt/Smart-To-Do/releases/download/${{ env.VERSION_TAG }}/SyncTask-Windows.zip)
             - 📱 **Android (Lightweight ~20MB, for all modern phones)**: [SyncTask-Android-arm64.apk](https://github.com/onebotyt/Smart-To-Do/releases/download/${{ env.VERSION_TAG }}/SyncTask-Android-arm64.apk)
             - 📱 **Android (Universal, all architectures)**: [SyncTask-Android.apk](https://github.com/onebotyt/Smart-To-Do/releases/download/${{ env.VERSION_TAG }}/SyncTask-Android.apk)
-            - 💻 **Windows Application (Installer Included)**: [SyncTask-Windows.zip](https://github.com/onebotyt/Smart-To-Do/releases/download/${{ env.VERSION_TAG }}/SyncTask-Windows.zip) *(Extract and double-click `Install-SyncTask.cmd` for automatic desktop/start-menu install!)*
           files: |
+            SyncTask-Setup.exe
+            SyncTask-Windows.zip
             SyncTask-Android.apk
             SyncTask-Android-arm64.apk
-            SyncTask-Windows.zip
+            SyncTask-${{ env.VERSION_TAG }}-windows-setup.exe
+            SyncTask-${{ env.VERSION_TAG }}-windows.zip
             SyncTask-${{ env.VERSION_TAG }}-android-universal.apk
             SyncTask-${{ env.VERSION_TAG }}-android-arm64.apk
-            SyncTask-${{ env.VERSION_TAG }}-windows.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

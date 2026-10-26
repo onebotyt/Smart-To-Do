@@ -76,7 +76,11 @@ class _UpdateDownloadDialogState extends State<UpdateDownloadDialog>
       });
 
       final tempDir = await getTemporaryDirectory();
-      final ext = Platform.isAndroid ? '.apk' : (Platform.isWindows ? '.zip' : '');
+      final ext = Platform.isAndroid
+          ? '.apk'
+          : (Platform.isWindows
+              ? (downloadUrl.toLowerCase().contains('.exe') ? '.exe' : '.zip')
+              : '');
       final saveFile = File('${tempDir.path}/synctask_update$ext');
       if (await saveFile.exists()) {
         await saveFile.delete();
@@ -119,14 +123,19 @@ class _UpdateDownloadDialogState extends State<UpdateDownloadDialog>
   Future<void> _executeInstall(File downloadedFile) async {
     try {
       if (Platform.isWindows) {
-        // Automatically extract update and run installer
-        final installDir = downloadedFile.parent.path;
-        final powershellCmd =
-            'Expand-Archive -Path "${downloadedFile.path}" -DestinationPath "$installDir\\synctask_new" -Force; '
-            'if (Test-Path "$installDir\\synctask_new\\Install-SyncTask.cmd") { Start-Process cmd.exe -ArgumentList "/c `"$installDir\\synctask_new\\Install-SyncTask.cmd`"" } else { Start-Process "$installDir\\synctask_new\\synctask.exe" }';
+        if (downloadedFile.path.endsWith('.exe')) {
+          await Process.run('cmd.exe', ['/c', 'start', '', downloadedFile.path]);
+          exit(0);
+        } else {
+          // Automatically extract update and run installer
+          final installDir = downloadedFile.parent.path;
+          final powershellCmd =
+              'Expand-Archive -Path "${downloadedFile.path}" -DestinationPath "$installDir\\synctask_new" -Force; '
+              'if (Test-Path "$installDir\\synctask_new\\Install-SyncTask.cmd") { Start-Process cmd.exe -ArgumentList "/c `"$installDir\\synctask_new\\Install-SyncTask.cmd`"" } else { Start-Process "$installDir\\synctask_new\\synctask.exe" }';
 
-        await Process.run('powershell', ['-Command', powershellCmd]);
-        exit(0); // Close current app instance so installer/new version takes over
+          await Process.run('powershell', ['-Command', powershellCmd]);
+          exit(0); // Close current app instance so installer/new version takes over
+        }
       } else if (Platform.isAndroid) {
         // Direct native APK installation prompt
         try {

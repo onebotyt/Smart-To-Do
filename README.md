@@ -25,9 +25,10 @@ Always get the newest release directly with a single click below:
 
 | Platform | Format / Architecture | Download Link | File Size | Notes |
 | :--- | :--- | :--- | :--- | :--- |
+| 💻 **Windows (Setup Installer)** | Official Setup `.exe` | [📥 **Download Windows Setup (SyncTask-Setup.exe)**](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Setup.exe) | **~15 MB** | Standard Windows Setup Wizard with Desktop & Start Menu Icons |
+| 💻 **Windows (Portable ZIP)** | Portable Bundle + Script | [📥 **Download Windows ZIP (SyncTask-Windows.zip)**](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Windows.zip) | ~13.2 MB | Portable archive with `Install-SyncTask.cmd` script |
 | 📱 **Android (Recommended)** | `arm64-v8a` APK | [📥 **Download Android APK (arm64)**](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Android-arm64.apk) | **~20.4 MB** | Optimized for 99% of modern phones |
 | 📱 **Android (Universal)** | Multi-ABI APK | [📥 **Download Universal APK**](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Android.apk) | ~58 MB | Compatible with all Android devices |
-| 💻 **Windows** | ZIP with Installer | [📥 **Download Windows Bundle (.zip)**](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Windows.zip) | **~13.2 MB** | Includes One-Click Desktop Installer |
 
 > 📦 *View all release changelogs and historical archives on the [GitHub Releases Page](https://github.com/onebotyt/Smart-To-Do/releases).*
 
@@ -35,11 +36,17 @@ Always get the newest release directly with a single click below:
 
 ## 💻 Installation Instructions
 
-### 🖥️ Windows (One-Click Setup)
+### 🖥️ Windows
+**Option 1: Setup Installer (Easiest)**
+1. Download [**SyncTask-Setup.exe**](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Setup.exe).
+2. Double-click the downloaded setup file.
+3. Follow the standard Windows Setup Wizard.
+4. SyncTask will be installed with its official icon on your **Desktop**, **Start Menu Programs**, and Windows **Installed Apps**, and launch automatically!
+
+**Option 2: Portable ZIP Package**
 1. Download [**SyncTask-Windows.zip**](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Windows.zip).
-2. Right-click the downloaded zip and choose **Extract All...**.
-3. Open the extracted folder and double-click **`Install-SyncTask.cmd`**.
-4. SyncTask will automatically install to `%LocalAppData%\Programs\SyncTask`, place shortcuts on your **Desktop** and **Start Menu**, and launch immediately!
+2. Right-click and choose **Extract All...**.
+3. Inside the extracted folder, double-click **`Install-SyncTask.cmd`** to automatically set up shortcuts and register the app.
 
 ### 📱 Android
 1. Download [**SyncTask-Android-arm64.apk**](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Android-arm64.apk) directly on your device.

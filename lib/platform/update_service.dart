@@ -80,9 +80,14 @@ class GitHubUpdateService implements UpdateService {
             } else if (name.endsWith('.apk') && downloadUrl == htmlUrl) {
               downloadUrl = browserUrl;
             }
-          } else if (Platform.isWindows && name.endsWith('.zip')) {
-            downloadUrl = browserUrl;
-            break;
+          } else if (Platform.isWindows) {
+            // Prioritize standard Windows Setup installer
+            if (name.endsWith('.exe')) {
+              downloadUrl = browserUrl;
+              break;
+            } else if (name.endsWith('.zip') && downloadUrl == htmlUrl) {
+              downloadUrl = browserUrl;
+            }
           }
         }
       }
