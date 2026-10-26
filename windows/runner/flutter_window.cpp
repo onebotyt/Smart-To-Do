@@ -1,6 +1,8 @@
 #include "flutter_window.h"
 
 #include <optional>
+#include <windows.h>
+#include <dwmapi.h>
 
 #include "flutter/generated_plugin_registrant.h"
 
@@ -9,6 +11,120 @@ FlutterWindow::FlutterWindow(const flutter::DartProject& project)
 
 FlutterWindow::~FlutterWindow() {}
 
+void FlutterWindow::SetWindowMode(const std::string& mode) {
+  HWND hwnd = this->GetHandle();
+  if (!hwnd) return;
+
+  HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+  MONITORINFO mi = { sizeof(mi) };
+  GetMonitorInfo(monitor, &mi);
+  RECT workArea = mi.rcWork;
+
+  UINT dpi = FlutterDesktopGetDpiForMonitor(monitor);
+  double scale = dpi / 96.0;
+
+  if (mode == "bubble") {
+    if (current_mode_ == "normal") {
+      GetWindowRect(hwnd, &normal_rect_);
+    }
+
+    int bubbleSize = static_cast<int>(72 * scale);
+
+    if (bubble_x_ < workArea.left || bubble_x_ + bubbleSize > workArea.right) {
+      bubble_x_ = workArea.right - bubbleSize - static_cast<int>(24 * scale);
+    }
+    if (bubble_y_ < workArea.top || bubble_y_ + bubbleSize > workArea.bottom) {
+      bubble_y_ = workArea.bottom - bubbleSize - static_cast<int>(60 * scale);
+    }
+
+    // Set borderless popup style and topmost
+    SetWindowLongPtr(hwnd, GWL_STYLE, WS_POPUP | WS_VISIBLE);
+    SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_TOPMOST | WS_EX_TOOLWINDOW);
+
+    SetWindowPos(hwnd, HWND_TOPMOST, bubble_x_, bubble_y_, bubbleSize, bubbleSize,
+                 SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+
+    // Circular region mask: outside corners are 100% transparent and pass-through
+    HRGN rgn = CreateEllipticRgn(0, 0, bubbleSize, bubbleSize);
+    SetWindowRgn(hwnd, rgn, TRUE);
+
+    current_mode_ = "bubble";
+  } else if (mode == "panel") {
+    if (current_mode_ == "normal") {
+      GetWindowRect(hwnd, &normal_rect_);
+    }
+
+    int panelWidth = static_cast<int>(360 * scale);
+    int panelHeight = static_cast<int>(500 * scale);
+
+    int px = bubble_x_;
+    int py = bubble_y_;
+
+    if (px < 0) {
+      px = workArea.right - panelWidth - static_cast<int>(24 * scale);
+    }
+    if (py < 0) {
+      py = workArea.bottom - panelHeight - static_cast<int>(60 * scale);
+    }
+
+    // Clamp inside screen bounds so panel NEVER clips or goes off-screen
+    if (px + panelWidth > workArea.right) {
+      px = workArea.right - panelWidth - static_cast<int>(12 * scale);
+    }
+    if (px < workArea.left) {
+      px = workArea.left + static_cast<int>(12 * scale);
+    }
+
+    if (py + panelHeight > workArea.bottom) {
+      py = workArea.bottom - panelHeight - static_cast<int>(12 * scale);
+    }
+    if (py < workArea.top) {
+      py = workArea.top + static_cast<int>(12 * scale);
+    }
+
+    SetWindowLongPtr(hwnd, GWL_STYLE, WS_POPUP | WS_VISIBLE);
+    SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_TOPMOST | WS_EX_TOOLWINDOW);
+
+    SetWindowPos(hwnd, HWND_TOPMOST, px, py, panelWidth, panelHeight,
+                 SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+
+    // Rounded rectangle region mask (radius 24)
+    int radius = static_cast<int>(24 * scale);
+    HRGN rgn = CreateRoundRectRgn(0, 0, panelWidth, panelHeight, radius, radius);
+    SetWindowRgn(hwnd, rgn, TRUE);
+
+    current_mode_ = "panel";
+  } else {
+    // "normal" mode
+    SetWindowRgn(hwnd, nullptr, TRUE);
+
+    SetWindowLongPtr(hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW | WS_VISIBLE);
+    SetWindowLongPtr(hwnd, GWL_EXSTYLE, is_always_on_top_ ? WS_EX_TOPMOST : 0);
+
+    int nw = normal_rect_.right - normal_rect_.left;
+    int nh = normal_rect_.bottom - normal_rect_.top;
+    int nx = normal_rect_.left;
+    int ny = normal_rect_.top;
+
+    if (nw < static_cast<int>(600 * scale) || nh < static_cast<int>(400 * scale)) {
+      nw = static_cast<int>(1024 * scale);
+      nh = static_cast<int>(720 * scale);
+      nx = workArea.left + (workArea.right - workArea.left - nw) / 2;
+      ny = workArea.top + (workArea.bottom - workArea.top - nh) / 2;
+    }
+
+    if (nx + nw > workArea.right) nx = workArea.right - nw;
+    if (nx < workArea.left) nx = workArea.left;
+    if (ny + nh > workArea.bottom) ny = workArea.bottom - nh;
+    if (ny < workArea.top) ny = workArea.top;
+
+    SetWindowPos(hwnd, is_always_on_top_ ? HWND_TOPMOST : HWND_NOTOPMOST,
+                 nx, ny, nw, nh, SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+
+    current_mode_ = "normal";
+  }
+}
+
 bool FlutterWindow::OnCreate() {
   if (!Win32Window::OnCreate()) {
     return false;
@@ -16,11 +132,8 @@ bool FlutterWindow::OnCreate() {
 
   RECT frame = GetClientArea();
 
-  // The size here must match the window dimensions to avoid unnecessary surface
-  // creation / destruction in the startup path.
   flutter_controller_ = std::make_unique<flutter::FlutterViewController>(
       frame.right - frame.left, frame.bottom - frame.top, project_);
-  // Ensure that basic setup of the controller was successful.
   if (!flutter_controller_->engine() || !flutter_controller_->view()) {
     return false;
   }
@@ -47,6 +160,7 @@ bool FlutterWindow::OnCreate() {
           always_on_top = std::get<bool>(it->second);
         }
       }
+      is_always_on_top_ = always_on_top;
       SetWindowPos(hwnd, always_on_top ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0,
                    SWP_NOMOVE | SWP_NOSIZE);
       result->Success(flutter::EncodableValue(true));
@@ -54,6 +168,74 @@ bool FlutterWindow::OnCreate() {
       LONG_PTR exStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
       bool isTopmost = (exStyle & WS_EX_TOPMOST) != 0;
       result->Success(flutter::EncodableValue(isTopmost));
+    } else if (call.method_name() == "setWindowMode") {
+      std::string mode = "normal";
+      if (const auto* args = std::get_if<flutter::EncodableMap>(call.arguments())) {
+        auto it = args->find(flutter::EncodableValue("mode"));
+        if (it != args->end() && std::holds_alternative<std::string>(it->second)) {
+          mode = std::get<std::string>(it->second);
+        }
+      }
+      this->SetWindowMode(mode);
+      result->Success(flutter::EncodableValue(current_mode_));
+    } else if (call.method_name() == "getWindowMode") {
+      result->Success(flutter::EncodableValue(current_mode_));
+    } else if (call.method_name() == "moveWindow") {
+      double dx = 0.0;
+      double dy = 0.0;
+      if (const auto* args = std::get_if<flutter::EncodableMap>(call.arguments())) {
+        auto itX = args->find(flutter::EncodableValue("dx"));
+        if (itX != args->end()) {
+          if (std::holds_alternative<double>(itX->second)) dx = std::get<double>(itX->second);
+          else if (std::holds_alternative<int32_t>(itX->second)) dx = std::get<int32_t>(itX->second);
+          else if (std::holds_alternative<int64_t>(itX->second)) dx = static_cast<double>(std::get<int64_t>(itX->second));
+        }
+        auto itY = args->find(flutter::EncodableValue("dy"));
+        if (itY != args->end()) {
+          if (std::holds_alternative<double>(itY->second)) dy = std::get<double>(itY->second);
+          else if (std::holds_alternative<int32_t>(itY->second)) dy = std::get<int32_t>(itY->second);
+          else if (std::holds_alternative<int64_t>(itY->second)) dy = static_cast<double>(std::get<int64_t>(itY->second));
+        }
+      }
+
+      RECT rect;
+      GetWindowRect(hwnd, &rect);
+      HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+      MONITORINFO mi = { sizeof(mi) };
+      GetMonitorInfo(monitor, &mi);
+      RECT workArea = mi.rcWork;
+
+      UINT dpi = FlutterDesktopGetDpiForMonitor(monitor);
+      double scale = dpi / 96.0;
+
+      int newX = rect.left + static_cast<int>(dx * scale);
+      int newY = rect.top + static_cast<int>(dy * scale);
+      int w = rect.right - rect.left;
+      int h = rect.bottom - rect.top;
+
+      if (newX < workArea.left) newX = workArea.left;
+      if (newX + w > workArea.right) newX = workArea.right - w;
+      if (newY < workArea.top) newY = workArea.top;
+      if (newY + h > workArea.bottom) newY = workArea.bottom - h;
+
+      SetWindowPos(hwnd, nullptr, newX, newY, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+
+      if (current_mode_ == "bubble") {
+        bubble_x_ = newX;
+        bubble_y_ = newY;
+      }
+
+      result->Success(flutter::EncodableValue(true));
+    } else if (call.method_name() == "startDragging") {
+      ReleaseCapture();
+      SendMessage(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+      if (current_mode_ == "bubble") {
+        RECT rect;
+        GetWindowRect(hwnd, &rect);
+        bubble_x_ = rect.left;
+        bubble_y_ = rect.top;
+      }
+      result->Success(flutter::EncodableValue(true));
     } else {
       result->NotImplemented();
     }
@@ -81,19 +263,28 @@ bool FlutterWindow::OnCreate() {
       result->Success(flutter::EncodableValue(false));
     } else if (call.method_name() == "setEnabled") {
       bool enabled = false;
+      bool bubble_mode = false;
       if (const auto* args = std::get_if<flutter::EncodableMap>(call.arguments())) {
         auto it = args->find(flutter::EncodableValue("enabled"));
         if (it != args->end() && std::holds_alternative<bool>(it->second)) {
           enabled = std::get<bool>(it->second);
+        }
+        auto itB = args->find(flutter::EncodableValue("bubbleMode"));
+        if (itB != args->end() && std::holds_alternative<bool>(itB->second)) {
+          bubble_mode = std::get<bool>(itB->second);
         }
       }
       if (RegOpenKeyExW(HKEY_CURRENT_USER, subKey, 0, KEY_SET_VALUE, &hKey) == ERROR_SUCCESS) {
         if (enabled) {
           wchar_t exePath[MAX_PATH];
           GetModuleFileNameW(nullptr, exePath, MAX_PATH);
+          std::wstring cmd = L"\"" + std::wstring(exePath) + L"\"";
+          if (bubble_mode) {
+            cmd += L" --floating-bubble";
+          }
           RegSetValueExW(hKey, L"SyncTask", 0, REG_SZ,
-                         reinterpret_cast<const BYTE*>(exePath),
-                         (lstrlenW(exePath) + 1) * sizeof(wchar_t));
+                         reinterpret_cast<const BYTE*>(cmd.c_str()),
+                         static_cast<DWORD>((cmd.length() + 1) * sizeof(wchar_t)));
         } else {
           RegDeleteValueW(hKey, L"SyncTask");
         }
@@ -109,9 +300,6 @@ bool FlutterWindow::OnCreate() {
     this->Show();
   });
 
-  // Flutter can complete the first frame before the "show window" callback is
-  // registered. The following call ensures a frame is pending to ensure the
-  // window is shown. It is a no-op if the first frame hasn't completed yet.
   flutter_controller_->ForceRedraw();
 
   return true;
@@ -131,7 +319,6 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
-  // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {
     std::optional<LRESULT> result =
         flutter_controller_->HandleTopLevelWindowProc(hwnd, message, wparam,

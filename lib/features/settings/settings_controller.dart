@@ -57,6 +57,7 @@ class SettingsController extends ChangeNotifier {
 
   bool get isAlwaysOnTop => _prefs.getBool('isAlwaysOnTop') ?? false;
   bool get isLaunchAtStartup => _prefs.getBool('pref_launch_at_startup') ?? false;
+  bool get isStartInBubbleMode => _prefs.getBool('isStartInBubbleMode') ?? false;
 
   Future<void> setThemeMode(ThemeMode m) async {
     await _prefs.setString('themeMode', m.name);
@@ -96,7 +97,21 @@ class SettingsController extends ChangeNotifier {
 
   Future<void> setLaunchAtStartup(bool enabled) async {
     await _prefs.setBool('pref_launch_at_startup', enabled);
-    await PlatformStartupService().setLaunchAtStartup(enabled);
+    await PlatformStartupService().setLaunchAtStartup(
+      enabled,
+      bubbleMode: isStartInBubbleMode,
+    );
+    notifyListeners();
+  }
+
+  Future<void> setStartInBubbleMode(bool enabled) async {
+    await _prefs.setBool('isStartInBubbleMode', enabled);
+    if (isLaunchAtStartup) {
+      await PlatformStartupService().setLaunchAtStartup(
+        true,
+        bubbleMode: enabled,
+      );
+    }
     notifyListeners();
   }
 }

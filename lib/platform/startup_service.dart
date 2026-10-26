@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 abstract class StartupService {
   bool get isSupported;
   Future<bool> isLaunchAtStartupEnabled();
-  Future<void> setLaunchAtStartup(bool enabled);
+  Future<void> setLaunchAtStartup(bool enabled, {bool bubbleMode = false});
 }
 
 class PlatformStartupService implements StartupService {
@@ -31,14 +31,17 @@ class PlatformStartupService implements StartupService {
   }
 
   @override
-  Future<void> setLaunchAtStartup(bool enabled) async {
+  Future<void> setLaunchAtStartup(bool enabled, {bool bubbleMode = false}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_prefKey, enabled);
 
     if (!isSupported) return;
 
     try {
-      await _channel.invokeMethod('setEnabled', {'enabled': enabled});
+      await _channel.invokeMethod('setEnabled', {
+        'enabled': enabled,
+        'bubbleMode': bubbleMode,
+      });
     } catch (_) {}
   }
 }

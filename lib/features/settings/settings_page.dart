@@ -1,9 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../platform/floating_panel_service.dart';
-import '../../platform/startup_service.dart';
 import '../../platform/update_service.dart';
+import '../../platform/window_service.dart';
 import '../clipboard/clipboard_controller.dart';
 import '../floating_panel/floating_task_panel.dart';
 import '../sync/devices_page.dart';
@@ -221,28 +223,32 @@ class _FloatingPanelTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final service = PlatformFloatingPanelService();
     return ListTile(
       leading: const Icon(Icons.picture_in_picture_alt, color: Colors.blue),
       title: const Text('Floating task panel window'),
       subtitle: const Text('Open compact always-on-top quick checklist'),
       trailing: const Icon(Icons.open_in_new, size: 20),
       onTap: () async {
-        final hasPerm = await service.hasPermission();
-        if (!hasPerm && context.mounted) {
-          await service.requestPermission();
-        }
-        if (context.mounted) {
-          showDialog(
-            context: context,
-            barrierColor: Colors.black38,
-            builder: (ctx) => Center(
-              child: FloatingTaskPanel(
-                onClose: () => Navigator.pop(ctx),
-                onExpand: () => Navigator.pop(ctx),
+        if (Platform.isWindows) {
+          await PlatformWindowService.setWindowMode(AppWindowMode.panel);
+        } else {
+          final service = PlatformFloatingPanelService();
+          final hasPerm = await service.hasPermission();
+          if (!hasPerm && context.mounted) {
+            await service.requestPermission();
+          }
+          if (context.mounted) {
+            showDialog(
+              context: context,
+              barrierColor: Colors.black38,
+              builder: (ctx) => Center(
+                child: FloatingTaskPanel(
+                  onClose: () => Navigator.pop(ctx),
+                  onExpand: () => Navigator.pop(ctx),
+                ),
               ),
-            ),
-          );
+            );
+          }
         }
       },
     );
@@ -284,39 +290,46 @@ class _WidgetTile extends StatelessWidget {
   }
 }
 
-class _StartupTile extends StatefulWidget {
+class _StartupTile extends StatelessWidget {
   const _StartupTile();
 
   @override
-  State<_StartupTile> createState() => _StartupTileState();
-}
-
-class _StartupTileState extends State<_StartupTile> {
-  final _service = PlatformStartupService();
-  bool _enabled = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final val = await _service.isLaunchAtStartupEnabled();
-    if (mounted) setState(() => _enabled = val);
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return SwitchListTile(
-      secondary: const Icon(Icons.rocket_launch_outlined, color: Colors.deepOrange),
-      title: const Text('Launch at startup (Windows)'),
-      subtitle: const Text('Start SyncTask automatically in background'),
-      value: _enabled,
-      onChanged: (val) async {
-        setState(() => _enabled = val);
-        await _service.setLaunchAtStartup(val);
-      },
+    final s = context.watch<SettingsController>();
+
+    final title = Platform.isWindows
+        ? 'Launch at startup (Windows)'
+        : (Platform.isAndroid
+            ? 'Auto-start on device boot (Android)'
+            : 'Launch at startup');
+
+    final subtitle = Platform.isWindows
+        ? 'Start SyncTask automatically when PC boots up'
+        : (Platform.isAndroid
+            ? 'Refresh home widget & sync tasks when phone starts'
+            : 'Start SyncTask automatically in background');
+
+    return Column(
+      children: [
+        SwitchListTile(
+          secondary: const Icon(Icons.rocket_launch_outlined, color: Colors.deepOrange),
+          title: Text(title),
+          subtitle: Text(subtitle),
+          value: s.isLaunchAtStartup,
+          onChanged: s.setLaunchAtStartup,
+        ),
+        if (s.isLaunchAtStartup && Platform.isWindows)
+          Padding(
+            padding: const EdgeInsets.only(left: 32),
+            child: SwitchListTile(
+              secondary: const Icon(Icons.bubble_chart_outlined, color: Colors.indigo),
+              title: const Text('Start as Desktop Floating Bubble'),
+              subtitle: const Text('Directly launch as the floating bubble on PC startup'),
+              value: s.isStartInBubbleMode,
+              onChanged: s.setStartInBubbleMode,
+            ),
+          ),
+      ],
     );
   }
 }

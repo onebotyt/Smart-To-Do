@@ -1,7 +1,12 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:synctask/data/models/device.dart';
 import 'package:synctask/features/sync/discovery/lan_discovery.dart';
+import 'package:synctask/features/sync/qr_scan_page.dart';
 import 'package:synctask/features/sync/sync_controller.dart';
 import 'package:synctask/features/tasks/task_controller.dart';
 
@@ -102,10 +107,22 @@ class DevicesPage extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                     ),
               ),
-              TextButton.icon(
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Pair Device'),
-                onPressed: () => _showPairDialog(context, sync),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (Platform.isAndroid || Platform.isIOS)
+                    FilledButton.tonalIcon(
+                      icon: const Icon(Icons.qr_code_scanner, size: 18),
+                      label: const Text('Scan QR'),
+                      onPressed: () => _openQrScanner(context, sync),
+                    ),
+                  const SizedBox(width: 6),
+                  TextButton.icon(
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Pair Manually'),
+                    onPressed: () => _showPairDialog(context, sync),
+                  ),
+                ],
               ),
             ],
           ),
@@ -333,6 +350,66 @@ class DevicesPage extends StatelessWidget {
     );
   }
 
+  static Future<String?> _getLocalIp() async {
+    try {
+      final interfaces = await NetworkInterface.list(
+        type: InternetAddressType.IPv4,
+        includeLinkLocal: false,
+      );
+      for (final interface in interfaces) {
+        for (final addr in interface.addresses) {
+          if (!addr.isLoopback && !addr.address.startsWith('169.254')) {
+            return addr.address;
+          }
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Future<void> _openQrScanner(BuildContext context, SyncController sync) async {
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(builder: (_) => const QRScanPage()),
+    );
+
+    if (result != null && context.mounted) {
+      final ip = result['ip'] as String;
+      final port = result['port'] is int ? result['port'] as int : int.tryParse(result['port'].toString()) ?? 43884;
+      final pin = result['pin'] as String;
+      final name = result['name'] as String? ?? ip;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Pairing with $name ($ip)...')),
+      );
+
+      final res = await sync.pairWithPeer(
+        host: ip,
+        port: port,
+        pin: pin,
+      );
+
+      if (context.mounted) {
+        if (res.success) {
+          context.read<TaskController>().refresh();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Successfully paired with $name!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Pairing failed. Make sure both devices are on the same Wi-Fi.'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   void _showPairingCodeModal(BuildContext context, SyncController sync) {
     final pin = sync.startPairingMode();
 
@@ -340,36 +417,87 @@ class DevicesPage extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Pairing Confirmation Code'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Enter this 6-digit code on your other device to connect:',
-              textAlign: TextAlign.center,
+        content: SizedBox(
+          width: 280,
+          child: SingleChildScrollView(
+            child: FutureBuilder<String?>(
+              future: _getLocalIp(),
+              builder: (context, snapshot) {
+                final ip = snapshot.data ?? '127.0.0.1';
+                final qrPayload = jsonEncode({
+                  'type': 'synctask_pair',
+                  'ip': ip,
+                  'port': 43884,
+                  'pin': pin,
+                  'name': sync.localDeviceName,
+                  'id': sync.localDeviceId,
+                });
+
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Scan with SyncTask on mobile to pair instantly:',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 13),
+                    ),
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Colors.black12,
+                            blurRadius: 8,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: SizedBox(
+                        width: 170,
+                        height: 170,
+                        child: QrImageView(
+                          data: qrPayload,
+                          version: QrVersions.auto,
+                          padding: EdgeInsets.zero,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      'Or enter this 6-digit PIN manually:',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        pin,
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 6,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Device IP: $ip : 43884\nCode valid for 5 min on local Wi-Fi',
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                );
+              },
             ),
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                pin,
-                style: const TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 6,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Code valid for 5 minutes. Make sure both devices are on the same Wi-Fi.',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-              textAlign: TextAlign.center,
-            ),
-          ],
+          ),
         ),
         actions: [
           TextButton(
@@ -402,6 +530,31 @@ class DevicesPage extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (Platform.isAndroid || Platform.isIOS) ...[
+                FilledButton.icon(
+                  icon: const Icon(Icons.qr_code_scanner),
+                  label: const Text('Scan QR Code with Camera'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(42),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _openQrScanner(context, sync);
+                  },
+                ),
+                const SizedBox(height: 12),
+                const Row(
+                  children: [
+                    Expanded(child: Divider()),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      child: Text('OR ENTER MANUALLY', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    ),
+                    Expanded(child: Divider()),
+                  ],
+                ),
+                const SizedBox(height: 12),
+              ],
               TextField(
                 controller: ipController,
                 decoration: const InputDecoration(

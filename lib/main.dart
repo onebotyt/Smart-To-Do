@@ -12,13 +12,19 @@ import 'features/clipboard/clipboard_controller.dart';
 import 'features/settings/settings_controller.dart';
 import 'features/sync/sync_controller.dart';
 import 'features/tasks/task_controller.dart';
+import 'platform/window_service.dart';
 
-Future<void> main() async {
+Future<void> main([List<String> args = const []]) async {
   WidgetsFlutterBinding.ensureInitialized();
 
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
+  }
+
+  final isBubbleArg = args.contains('--floating-bubble') || args.contains('--bubble');
+  if (isBubbleArg) {
+    PlatformWindowService.currentMode.value = AppWindowMode.bubble;
   }
 
   final db = await AppDatabase.open();
@@ -30,6 +36,10 @@ Future<void> main() async {
   final clipboardController = ClipboardController(syncEngine: syncController.engine);
   await clipboardController.init();
   final settings = await SettingsController.load();
+
+  if (!isBubbleArg && Platform.isWindows && settings.isStartInBubbleMode) {
+    PlatformWindowService.setWindowMode(AppWindowMode.bubble);
+  }
 
   runApp(
     MultiProvider(

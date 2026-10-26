@@ -40,40 +40,63 @@ class SyncTaskWidgetProvider : AppWidgetProvider() {
         ) {
             val views = RemoteViews(context.packageName, R.layout.widget_sync_task)
 
-            // Click opens MainActivity
-            val intent = Intent(context, MainActivity::class.java)
-            val pendingIntent = PendingIntent.getActivity(
+            // Click container opens MainActivity
+            val mainIntent = Intent(context, MainActivity::class.java)
+            val mainPendingIntent = PendingIntent.getActivity(
                 context,
                 0,
-                intent,
+                mainIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            views.setOnClickPendingIntent(R.id.widget_container, pendingIntent)
+            views.setOnClickPendingIntent(R.id.widget_container, mainPendingIntent)
 
-            // Update pending badge
-            views.setTextViewText(R.id.widget_pending_badge, "$pendingCount Pending")
+            // Click (+) button opens MainActivity with action to add task
+            val addIntent = Intent(context, MainActivity::class.java).apply {
+                action = "com.synctask.CREATE_TASK"
+            }
+            val addPendingIntent = PendingIntent.getActivity(
+                context,
+                1,
+                addIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            views.setOnClickPendingIntent(R.id.widget_add_btn, addPendingIntent)
+
+            // Update bold pending counter badge (matching Image 2)
+            views.setTextViewText(R.id.widget_pending_badge, pendingCount.toString())
+
+            val rowIds = intArrayOf(
+                R.id.widget_task_row_1,
+                R.id.widget_task_row_2,
+                R.id.widget_task_row_3,
+                R.id.widget_task_row_4,
+                R.id.widget_task_row_5,
+                R.id.widget_task_row_6
+            )
+
+            val textIds = intArrayOf(
+                R.id.widget_task_text_1,
+                R.id.widget_task_text_2,
+                R.id.widget_task_text_3,
+                R.id.widget_task_text_4,
+                R.id.widget_task_text_5,
+                R.id.widget_task_text_6
+            )
 
             if (tasks.isEmpty()) {
-                views.setTextViewText(R.id.widget_task_1, "No pending tasks")
-                views.setViewVisibility(R.id.widget_task_1, View.VISIBLE)
-                views.setViewVisibility(R.id.widget_task_2, View.GONE)
-                views.setViewVisibility(R.id.widget_task_3, View.GONE)
-            } else {
-                views.setTextViewText(R.id.widget_task_1, "• " + tasks[0])
-                views.setViewVisibility(R.id.widget_task_1, View.VISIBLE)
-
-                if (tasks.size > 1) {
-                    views.setTextViewText(R.id.widget_task_2, "• " + tasks[1])
-                    views.setViewVisibility(R.id.widget_task_2, View.VISIBLE)
-                } else {
-                    views.setViewVisibility(R.id.widget_task_2, View.GONE)
+                views.setViewVisibility(R.id.widget_empty_text, View.VISIBLE)
+                for (rowId in rowIds) {
+                    views.setViewVisibility(rowId, View.GONE)
                 }
-
-                if (tasks.size > 2) {
-                    views.setTextViewText(R.id.widget_task_3, "• " + tasks[2])
-                    views.setViewVisibility(R.id.widget_task_3, View.VISIBLE)
-                } else {
-                    views.setViewVisibility(R.id.widget_task_3, View.GONE)
+            } else {
+                views.setViewVisibility(R.id.widget_empty_text, View.GONE)
+                for (i in rowIds.indices) {
+                    if (i < tasks.size) {
+                        views.setViewVisibility(rowIds[i], View.VISIBLE)
+                        views.setTextViewText(textIds[i], tasks[i])
+                    } else {
+                        views.setViewVisibility(rowIds[i], View.GONE)
+                    }
                 }
             }
 

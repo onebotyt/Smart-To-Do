@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/models/task.dart';
 import '../../platform/update_service.dart';
+import '../../platform/window_service.dart';
 import '../floating_panel/floating_task_panel.dart';
 import '../settings/settings_controller.dart';
 import '../settings/settings_page.dart';
@@ -65,7 +68,7 @@ class _TasksPageState extends State<TasksPage> {
           ],
         ),
         actions: [
-          // Floating Panel Toggle
+          // Floating Desktop Bubble / Screen Bubble Toggle
           IconButton(
             icon: Icon(
               settings.isFloatingBubbleEnabled
@@ -75,36 +78,48 @@ class _TasksPageState extends State<TasksPage> {
                   ? theme.colorScheme.primary
                   : null,
             ),
-            tooltip: settings.isFloatingBubbleEnabled
-                ? 'Floating screen bubble: ON'
-                : 'Floating screen bubble: OFF',
+            tooltip: Platform.isWindows
+                ? 'Desktop Floating Bubble (Floats over all apps)'
+                : (settings.isFloatingBubbleEnabled
+                    ? 'Floating screen bubble: ON'
+                    : 'Floating screen bubble: OFF'),
             onPressed: () {
-              final next = !settings.isFloatingBubbleEnabled;
-              settings.setFloatingBubbleEnabled(next);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(next
-                      ? 'Floating bubble enabled on screen'
-                      : 'Floating bubble hidden'),
-                  duration: const Duration(seconds: 2),
-                ),
-              );
+              if (Platform.isWindows) {
+                PlatformWindowService.setWindowMode(AppWindowMode.bubble);
+              } else {
+                final next = !settings.isFloatingBubbleEnabled;
+                settings.setFloatingBubbleEnabled(next);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(next
+                        ? 'Floating bubble enabled on screen'
+                        : 'Floating bubble hidden'),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              }
             },
           ),
           IconButton(
             icon: const Icon(Icons.picture_in_picture_alt_outlined),
-            tooltip: 'Floating Panel Window',
+            tooltip: Platform.isWindows
+                ? 'Desktop Floating Task Panel'
+                : 'Floating Panel Window',
             onPressed: () {
-              showDialog(
-                context: context,
-                barrierColor: Colors.black38,
-                builder: (ctx) => Center(
-                  child: FloatingTaskPanel(
-                    onClose: () => Navigator.pop(ctx),
-                    onExpand: () => Navigator.pop(ctx),
+              if (Platform.isWindows) {
+                PlatformWindowService.setWindowMode(AppWindowMode.panel);
+              } else {
+                showDialog(
+                  context: context,
+                  barrierColor: Colors.black38,
+                  builder: (ctx) => Center(
+                    child: FloatingTaskPanel(
+                      onClose: () => Navigator.pop(ctx),
+                      onExpand: () => Navigator.pop(ctx),
+                    ),
                   ),
-                ),
-              );
+                );
+              }
             },
           ),
           IconButton(

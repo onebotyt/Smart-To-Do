@@ -1,9 +1,14 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../features/floating_panel/desktop_floating_bubble.dart';
+import '../features/floating_panel/desktop_floating_panel.dart';
 import '../features/floating_panel/floating_bubble_overlay.dart';
 import '../features/settings/settings_controller.dart';
 import '../features/tasks/tasks_page.dart';
+import '../platform/window_service.dart';
 
 class SyncTaskApp extends StatelessWidget {
   const SyncTaskApp({super.key});
@@ -65,13 +70,30 @@ class SyncTaskApp extends StatelessWidget {
       ),
     );
 
-    return MaterialApp(
-      title: 'SyncTask',
-      debugShowCheckedModeBanner: false,
-      themeMode: settings.themeMode,
-      theme: lightTheme,
-      darkTheme: darkTheme,
-      home: const FloatingBubbleOverlay(child: TasksPage()),
+    return ValueListenableBuilder<AppWindowMode>(
+      valueListenable: PlatformWindowService.currentMode,
+      builder: (context, windowMode, _) {
+        Widget content;
+        if (Platform.isWindows && windowMode == AppWindowMode.bubble) {
+          content = const DesktopFloatingBubble();
+        } else if (Platform.isWindows && windowMode == AppWindowMode.panel) {
+          content = DesktopFloatingPanel(
+            onClose: () => PlatformWindowService.setWindowMode(AppWindowMode.bubble),
+            onExpand: () => PlatformWindowService.setWindowMode(AppWindowMode.normal),
+          );
+        } else {
+          content = const FloatingBubbleOverlay(child: TasksPage());
+        }
+
+        return MaterialApp(
+          title: 'SyncTask',
+          debugShowCheckedModeBanner: false,
+          themeMode: settings.themeMode,
+          theme: lightTheme,
+          darkTheme: darkTheme,
+          home: content,
+        );
+      },
     );
   }
 }

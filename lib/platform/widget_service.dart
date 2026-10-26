@@ -24,7 +24,7 @@ class PlatformWidgetService implements WidgetService {
     try {
       await _channel.invokeMethod('updateWidget', {
         'pendingCount': pendingCount,
-        'topTasks': topTaskTitles.take(5).toList(),
+        'topTasks': topTaskTitles.take(6).toList(),
       });
     } catch (_) {}
   }

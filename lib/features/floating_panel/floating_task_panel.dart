@@ -1,18 +1,25 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:synctask/data/models/task.dart';
 import 'package:synctask/features/sync/sync_controller.dart';
 import 'package:synctask/features/tasks/task_controller.dart';
+import '../../platform/window_service.dart';
 import '../settings/settings_controller.dart';
 
 class FloatingTaskPanel extends StatefulWidget {
   final VoidCallback? onClose;
   final VoidCallback? onExpand;
+  final double? width;
+  final double? height;
 
   const FloatingTaskPanel({
     super.key,
     this.onClose,
     this.onExpand,
+    this.width,
+    this.height,
   });
 
   @override
@@ -63,8 +70,8 @@ class _FloatingTaskPanelState extends State<FloatingTaskPanel> {
     return Material(
       color: Colors.transparent,
       child: Container(
-        width: 340,
-        height: 480,
+        width: widget.width ?? 340,
+        height: widget.height ?? 480,
         decoration: BoxDecoration(
           color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
@@ -85,11 +92,20 @@ class _FloatingTaskPanelState extends State<FloatingTaskPanel> {
           child: Column(
             children: [
               // Panel Header (Draggable visual bar)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                color: theme.colorScheme.surfaceContainerHighest,
-                child: Row(
-                  children: [
+              GestureDetector(
+                onPanUpdate: (details) {
+                  if (Platform.isWindows) {
+                    PlatformWindowService.moveWindow(
+                      details.delta.dx,
+                      details.delta.dy,
+                    );
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  child: Row(
+                    children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(4),
                       child: Image.asset('assets/logo.png', width: 20, height: 20),
@@ -167,6 +183,7 @@ class _FloatingTaskPanelState extends State<FloatingTaskPanel> {
                   ],
                 ),
               ),
+            ),
 
               // Quick Input Box
               Padding(
