@@ -78,6 +78,12 @@ jobs:
       - name: Build Windows Desktop Release
         run: flutter build windows --release
 
+      - name: Copy Install Scripts to Bundle
+        shell: pwsh
+        run: |
+          Copy-Item "windows\Install-SyncTask.cmd" -Destination "build\windows\x64\runner\Release\"
+          Copy-Item "windows\Install-SyncTask.ps1" -Destination "build\windows\x64\runner\Release\"
+
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
 
@@ -88,8 +94,6 @@ jobs:
       - name: Compress Windows bundle
         shell: pwsh
         run: |
-          Copy-Item "windows\Install-SyncTask.cmd" -Destination "build\windows\x64\runner\Release\"
-          Copy-Item "windows\Install-SyncTask.ps1" -Destination "build\windows\x64\runner\Release\"
           Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "synctask-windows-release.zip"
 
       - name: Upload Windows Bundle
