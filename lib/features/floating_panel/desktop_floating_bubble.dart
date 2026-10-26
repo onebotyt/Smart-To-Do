@@ -17,6 +17,8 @@ class _DesktopFloatingBubbleState extends State<DesktopFloatingBubble>
   late final AnimationController _pulseController;
   late final Animation<double> _scaleAnimation;
   bool _isHovered = false;
+  Offset _pointerDownPos = Offset.zero;
+  bool _didDrag = false;
 
   @override
   void initState() {
@@ -52,105 +54,122 @@ class _DesktopFloatingBubbleState extends State<DesktopFloatingBubble>
           cursor: SystemMouseCursors.click,
           onEnter: (_) => setState(() => _isHovered = true),
           onExit: (_) => setState(() => _isHovered = false),
-          child: GestureDetector(
-            onPanStart: (_) {
-              PlatformWindowService.startDragging();
+          child: Listener(
+            onPointerDown: (event) {
+              _pointerDownPos = event.position;
+              _didDrag = false;
             },
-            onTap: () {
-              PlatformWindowService.setWindowMode(AppWindowMode.panel);
+            onPointerMove: (event) {
+              if (!_didDrag && (event.position - _pointerDownPos).distance > 6.0) {
+                _didDrag = true;
+                PlatformWindowService.startDragging();
+              }
             },
-            onSecondaryTapUp: (details) {
-              _showContextMenu(context, details.globalPosition);
+            onPointerUp: (event) {
+              // Single click without drag: immediately open the floating panel!
+              if (!_didDrag) {
+                PlatformWindowService.setWindowMode(AppWindowMode.panel);
+              }
             },
-            child: Tooltip(
-              message: 'SyncTask •  pending\nClick: open panel • Right-click: options / exit • Drag to move',
-              waitDuration: const Duration(milliseconds: 350),
-              child: AnimatedBuilder(
-                animation: _scaleAnimation,
-                builder: (context, child) {
-                  final scale = _isHovered ? 1.06 : _scaleAnimation.value;
-                  return Transform.scale(
-                    scale: scale,
-                    child: child,
-                  );
-                },
-                child: Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: [
-                        color,
-                        Color.lerp(color, Colors.black, 0.25) ?? color,
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: color.withValues(alpha: _isHovered ? 0.6 : 0.4),
-                        blurRadius: _isHovered ? 12 : 8,
-                        spreadRadius: 2,
+            child: GestureDetector(
+              onTap: () {
+                if (!_didDrag) {
+                  PlatformWindowService.setWindowMode(AppWindowMode.panel);
+                }
+              },
+              onSecondaryTapUp: (details) {
+                _showContextMenu(context, details.globalPosition);
+              },
+              child: Tooltip(
+                message: 'SyncTask • $pendingCount pending\nClick: open panel • Right-click: options / exit • Drag to move',
+                waitDuration: const Duration(milliseconds: 350),
+                child: AnimatedBuilder(
+                  animation: _scaleAnimation,
+                  builder: (context, child) {
+                    final scale = _isHovered ? 1.06 : _scaleAnimation.value;
+                    return Transform.scale(
+                      scale: scale,
+                      child: child,
+                    );
+                  },
+                  child: Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: [
+                          color,
+                          Color.lerp(color, Colors.black, 0.25) ?? color,
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                    ],
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.85),
-                      width: 2.2,
-                    ),
-                  ),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      // Center Robot Logo
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Image.asset(
-                          'assets/logo.png',
-                          width: 44,
-                          height: 44,
+                      boxShadow: [
+                        BoxShadow(
+                          color: color.withValues(alpha: _isHovered ? 0.6 : 0.4),
+                          blurRadius: _isHovered ? 12 : 8,
+                          spreadRadius: 2,
                         ),
+                      ],
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.85),
+                        width: 2.2,
                       ),
+                    ),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Center Robot Logo
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Image.asset(
+                            'assets/logo.png',
+                            width: 44,
+                            height: 44,
+                          ),
+                        ),
 
-                      // Pending tasks badge
-                      if (pendingCount > 0)
-                        Positioned(
-                          top: 4,
-                          right: 4,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 5,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.redAccent,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 1.5),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Colors.black26,
-                                  blurRadius: 4,
-                                ),
-                              ],
-                            ),
-                            constraints: const BoxConstraints(
-                              minWidth: 18,
-                              minHeight: 18,
-                            ),
-                            child: Center(
-                              child: Text(
-                                pendingCount > 99 ? '99+' : '',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  height: 1.0,
+                        // Pending tasks badge
+                        if (pendingCount > 0)
+                          Positioned(
+                            top: 4,
+                            right: 4,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.redAccent,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 1.5),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Colors.black26,
+                                    blurRadius: 4,
+                                  ),
+                                ],
+                              ),
+                              constraints: const BoxConstraints(
+                                minWidth: 18,
+                                minHeight: 18,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  pendingCount > 99 ? '99+' : '$pendingCount',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    height: 1.0,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),

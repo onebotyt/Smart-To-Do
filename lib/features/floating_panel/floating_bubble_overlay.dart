@@ -19,6 +19,22 @@ class _FloatingBubbleOverlayState extends State<FloatingBubbleOverlay>
   final ValueNotifier<Offset> _panelPosition = ValueNotifier(Offset.zero);
   bool _initialized = false;
   bool _isExpanded = false;
+  bool _isDraggingBubble = false;
+  Offset _panStartPoint = Offset.zero;
+
+  void _openPanel(Size screenSize, double panelWidth, double panelHeight) {
+    final bubblePos = _bubblePosition.value;
+    final initialPanelX = (bubblePos.dx - panelWidth + 56.0).clamp(
+      12.0,
+      (screenSize.width - panelWidth - 12.0).clamp(12.0, screenSize.width),
+    );
+    final initialPanelY = (bubblePos.dy - panelHeight + 56.0).clamp(
+      36.0,
+      (screenSize.height - panelHeight - 16.0).clamp(36.0, screenSize.height),
+    );
+    _panelPosition.value = Offset(initialPanelX, initialPanelY);
+    setState(() => _isExpanded = true);
+  }
 
   late final AnimationController _snapController;
   Animation<Offset>? _snapAnimation;
@@ -169,30 +185,31 @@ class _FloatingBubbleOverlayState extends State<FloatingBubbleOverlay>
             },
             child: RepaintBoundary(
               child: GestureDetector(
-                onPanStart: (_) {
+                onPanStart: (details) {
                   _snapController.stop();
+                  _panStartPoint = details.globalPosition;
+                  _isDraggingBubble = false;
                 },
                 onPanUpdate: (details) {
-                  final cur = _bubblePosition.value;
-                  final newX = (cur.dx + details.delta.dx).clamp(10.0, screenSize.width - 66.0);
-                  final newY = (cur.dy + details.delta.dy).clamp(40.0, screenSize.height - 110.0);
-                  _bubblePosition.value = Offset(newX, newY);
+                  if (!_isDraggingBubble && (details.globalPosition - _panStartPoint).distance > 8.0) {
+                    _isDraggingBubble = true;
+                  }
+                  if (_isDraggingBubble) {
+                    final cur = _bubblePosition.value;
+                    final newX = (cur.dx + details.delta.dx).clamp(10.0, screenSize.width - 66.0);
+                    final newY = (cur.dy + details.delta.dy).clamp(40.0, screenSize.height - 110.0);
+                    _bubblePosition.value = Offset(newX, newY);
+                  }
                 },
                 onPanEnd: (_) {
-                  _snapToEdge(screenSize);
+                  if (_isDraggingBubble) {
+                    _snapToEdge(screenSize);
+                  } else {
+                    _openPanel(screenSize, panelWidth, panelHeight);
+                  }
                 },
                 onTap: () {
-                  final bubblePos = _bubblePosition.value;
-                  final initialPanelX = (bubblePos.dx - panelWidth + 56.0).clamp(
-                    12.0,
-                    (screenSize.width - panelWidth - 12.0).clamp(12.0, screenSize.width),
-                  );
-                  final initialPanelY = (bubblePos.dy - panelHeight + 56.0).clamp(
-                    36.0,
-                    (screenSize.height - panelHeight - 16.0).clamp(36.0, screenSize.height),
-                  );
-                  _panelPosition.value = Offset(initialPanelX, initialPanelY);
-                  setState(() => _isExpanded = true);
+                  _openPanel(screenSize, panelWidth, panelHeight);
                 },
                 onLongPress: () {
                   showModalBottomSheet<void>(

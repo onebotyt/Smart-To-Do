@@ -1,5 +1,6 @@
 package com.synctask.synctask
 
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -97,6 +98,8 @@ class FloatingBubbleService : Service() {
             private var initialY = 0
             private var initialTouchX = 0f
             private var initialTouchY = 0f
+            private var isDragging = false
+            private var touchDownTime = 0L
 
             override fun onTouch(v: View, event: MotionEvent): Boolean {
                 when (event.action) {
@@ -105,28 +108,59 @@ class FloatingBubbleService : Service() {
                         initialY = params.y
                         initialTouchX = event.rawX
                         initialTouchY = event.rawY
+                        isDragging = false
+                        touchDownTime = System.currentTimeMillis()
                         return true
                     }
                     MotionEvent.ACTION_MOVE -> {
                         val dx = (event.rawX - initialTouchX).toInt()
                         val dy = (event.rawY - initialTouchY).toInt()
-                        params.x = initialX + dx
-                        params.y = initialY + dy
-                        try {
-                            windowManager?.updateViewLayout(bubbleContainer, params)
-                        } catch (_: Exception) {}
+                        val distance = Math.hypot(dx.toDouble(), dy.toDouble())
+                        if (!isDragging && distance > 12 * density) {
+                            isDragging = true
+                        }
+                        if (isDragging) {
+                            params.x = initialX + dx
+                            params.y = initialY + dy
+                            try {
+                                windowManager?.updateViewLayout(bubbleContainer, params)
+                            } catch (_: Exception) {}
+                        }
                         return true
                     }
                     MotionEvent.ACTION_UP -> {
-                        val diffX = Math.abs(event.rawX - initialTouchX)
-                        val diffY = Math.abs(event.rawY - initialTouchY)
+                        val touchDuration = System.currentTimeMillis() - touchDownTime
+                        val dx = (event.rawX - initialTouchX).toInt()
+                        val dy = (event.rawY - initialTouchY).toInt()
+                        val distance = Math.hypot(dx.toDouble(), dy.toDouble())
 
-                        if (diffX < 12 * density && diffY < 12 * density) {
-                            val intent = Intent(this@FloatingBubbleService, MainActivity::class.java).apply {
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                        // Click / Tap: finger didn't drag far OR was a quick tap
+                        if (!isDragging || (touchDuration < 400 && distance < 25 * density)) {
+                            // Launch SyncTask MainActivity to bring app to foreground
+                            val launchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+                            } ?: Intent(this@FloatingBubbleService, MainActivity::class.java).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
                             }
-                            startActivity(intent)
+
+                            val pendingIntent = PendingIntent.getActivity(
+                                this@FloatingBubbleService,
+                                0,
+                                launchIntent,
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+                                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                                else
+                                    PendingIntent.FLAG_UPDATE_CURRENT
+                            )
+                            try {
+                                pendingIntent.send()
+                            } catch (_: Exception) {
+                                try {
+                                    startActivity(launchIntent)
+                                } catch (_: Exception) {}
+                            }
                         } else {
+                            // Drag gesture finished: snap to nearest screen edge
                             val screenWidth = resources.displayMetrics.widthPixels
                             params.x = if (params.x + (bubbleSize / 2) < screenWidth / 2) {
                                 (12 * density).toInt()
