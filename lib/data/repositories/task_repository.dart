@@ -48,6 +48,28 @@ class TaskRepository {
     return rows.map(Task.fromMap).toList();
   }
 
+  /// Retrieve a task by ID, including deleted tombstones if present.
+  Future<Task?> getById(String id) async {
+    final rows = await _db.query(
+      'tasks',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return Task.fromMap(rows.first);
+  }
+
+  /// Retrieve all tasks. If [includeDeleted] is false, tombstones are excluded.
+  Future<List<Task>> getAll({bool includeDeleted = false}) async {
+    final rows = await _db.query(
+      'tasks',
+      where: includeDeleted ? null : 'deleted = 0',
+      orderBy: 'updated_at DESC',
+    );
+    return rows.map(Task.fromMap).toList();
+  }
+
   Future<List<String>> categories() async {
     final rows = await _db.query(
       'tasks',
@@ -177,13 +199,18 @@ class TaskRepository {
     });
   }
 
-  /// Marks change_log rows up to [maxSeq] as synced.
-  Future<int> markChangesSynced(int maxSeq) => _db.update(
+  /// Marks change_log rows up to [maxSeq] as synced (or all rows if null).
+  Future<int> markChangesSynced([int? maxSeq]) {
+    if (maxSeq != null) {
+      return _db.update(
         'change_log',
         {'synced': 1},
         where: 'seq <= ?',
         whereArgs: [maxSeq],
       );
+    }
+    return _db.update('change_log', {'synced': 1});
+  }
 
   /// Retrieves unacknowledged changes in monotonic sequence order.
   Future<List<Map<String, Object?>>> getUnsyncedChanges({int limit = 100}) =>

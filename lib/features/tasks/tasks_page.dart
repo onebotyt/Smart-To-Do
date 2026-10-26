@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../data/models/task.dart';
 import '../settings/settings_page.dart';
+import '../sync/devices_page.dart';
 import 'task_controller.dart';
 import 'task_edit_page.dart';
 
@@ -27,9 +28,20 @@ class TasksPage extends StatelessWidget {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.devices),
+            tooltip: 'Devices & Sync',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const DevicesPage()),
+            ),
+          ),
+          IconButton(
             icon: const Icon(Icons.settings),
-            onPressed: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const SettingsPage())),
+            tooltip: 'Settings',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SettingsPage()),
+            ),
           ),
         ],
         bottom: PreferredSize(

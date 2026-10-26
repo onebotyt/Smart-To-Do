@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/capabilities.dart';
 import '../../platform/update_service.dart';
+import '../sync/devices_page.dart';
 import 'settings_controller.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -15,6 +16,17 @@ class SettingsPage extends StatelessWidget {
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         children: [
+          const _Header('Sync & Devices'),
+          ListTile(
+            leading: const Icon(Icons.devices),
+            title: const Text('Paired Devices & Wi-Fi Sync'),
+            subtitle: const Text('Direct device-to-device synchronization'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const DevicesPage()),
+            ),
+          ),
           const _Header('Appearance'),
           ListTile(
             title: const Text('Theme'),

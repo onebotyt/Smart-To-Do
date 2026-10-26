@@ -88,7 +88,7 @@ void main() {
     final upgradedDb = await AppDatabase.open(path: dbFile);
     addTearDown(() async => await upgradedDb.close());
 
-    expect(await upgradedDb.getVersion(), 2);
+    expect(await upgradedDb.getVersion(), AppDatabase.version);
 
     // 3. Verify original data was preserved
     final tasks = await upgradedDb.query('tasks', where: 'id = ?', whereArgs: ['task-101']);
@@ -117,5 +117,21 @@ void main() {
     final conflicts = await upgradedDb.query('conflict_log', where: 'id = ?', whereArgs: ['conflict-1']);
     expect(conflicts.length, 1);
     expect(conflicts.first['field'], 'title');
+
+    // 5. Verify devices table was created by v3 migration
+    await upgradedDb.insert('devices', {
+      'id': 'dev-phone-1',
+      'name': 'Pixel Phone',
+      'fingerprint': 'sha256:abc12345',
+      'ip_address': '192.168.1.100',
+      'port': 43884,
+      'paired_at': 1700002000,
+      'last_seen': 1700003000,
+      'trusted': 1,
+    });
+
+    final devices = await upgradedDb.query('devices', where: 'id = ?', whereArgs: ['dev-phone-1']);
+    expect(devices.length, 1);
+    expect(devices.first['name'], 'Pixel Phone');
   });
 }
