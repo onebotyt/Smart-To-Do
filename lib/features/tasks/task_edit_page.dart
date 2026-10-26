@@ -123,14 +123,27 @@ class _TaskEditPageState extends State<TaskEditPage> {
           ),
         ],
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 720),
-          child: Form(
-            key: _form,
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              children: [
+      body: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0.0, end: 1.0),
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        builder: (context, val, child) {
+          return Opacity(
+            opacity: val,
+            child: Transform.translate(
+              offset: Offset(0, 8 * (1 - val)),
+              child: child,
+            ),
+          );
+        },
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: Form(
+              key: _form,
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                children: [
                 // Note Card (Single unified note input)
                 Card(
                   elevation: 0,
@@ -287,16 +300,21 @@ class _TaskEditPageState extends State<TaskEditPage> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildPriorityChip(int priority, String label, Color color) {
     final selected = _priority == priority;
-    return ChoiceChip(
-      selected: selected,
-      avatar: Icon(Icons.flag, size: 16, color: color),
-      label: Text(label),
-      onSelected: (_) => setState(() => _priority = priority),
+    return AnimatedScale(
+      duration: const Duration(milliseconds: 180),
+      scale: selected ? 1.05 : 0.98,
+      child: ChoiceChip(
+        selected: selected,
+        avatar: Icon(Icons.flag, size: 16, color: color),
+        label: Text(label),
+        onSelected: (_) => setState(() => _priority = priority),
+      ),
     );
   }
 }

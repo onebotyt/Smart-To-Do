@@ -86,29 +86,36 @@ class SettingsPage extends StatelessWidget {
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(24),
                                 onTap: () => s.setThemeColorIndex(index),
-                                child: Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color: color,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: isSelected ? Colors.white : Colors.transparent,
-                                      width: 3,
+                                child: AnimatedScale(
+                                  duration: const Duration(milliseconds: 200),
+                                  curve: Curves.easeOutBack,
+                                  scale: isSelected ? 1.08 : 0.94,
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    curve: Curves.easeOutCubic,
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: color,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: isSelected ? Colors.white : Colors.transparent,
+                                        width: isSelected ? 3 : 0,
+                                      ),
+                                      boxShadow: isSelected
+                                          ? [
+                                              BoxShadow(
+                                                color: color.withValues(alpha: 0.6),
+                                                blurRadius: 10,
+                                                spreadRadius: 2,
+                                              ),
+                                            ]
+                                          : null,
                                     ),
-                                    boxShadow: isSelected
-                                        ? [
-                                            BoxShadow(
-                                              color: color.withValues(alpha: 0.6),
-                                              blurRadius: 8,
-                                              spreadRadius: 2,
-                                            ),
-                                          ]
+                                    child: isSelected
+                                        ? const Icon(Icons.check, color: Colors.white, size: 20)
                                         : null,
                                   ),
-                                  child: isSelected
-                                      ? const Icon(Icons.check, color: Colors.white, size: 20)
-                                      : null,
                                 ),
                               ),
                             );

@@ -19,6 +19,16 @@ class SyncTaskApp extends StatelessWidget {
         brightness: Brightness.light,
       ),
       useMaterial3: true,
+      splashFactory: InkSparkle.splashFactory,
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
+          TargetPlatform.windows: ZoomPageTransitionsBuilder(),
+          TargetPlatform.iOS: ZoomPageTransitionsBuilder(),
+          TargetPlatform.macOS: ZoomPageTransitionsBuilder(),
+          TargetPlatform.linux: ZoomPageTransitionsBuilder(),
+        },
+      ),
       cardTheme: const CardThemeData(
         elevation: 0,
         shape: RoundedRectangleBorder(
@@ -36,6 +46,16 @@ class SyncTaskApp extends StatelessWidget {
       ),
       scaffoldBackgroundColor: settings.isAmoledDark ? Colors.black : null,
       useMaterial3: true,
+      splashFactory: InkSparkle.splashFactory,
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
+          TargetPlatform.windows: ZoomPageTransitionsBuilder(),
+          TargetPlatform.iOS: ZoomPageTransitionsBuilder(),
+          TargetPlatform.macOS: ZoomPageTransitionsBuilder(),
+          TargetPlatform.linux: ZoomPageTransitionsBuilder(),
+        },
+      ),
       cardTheme: CardThemeData(
         elevation: 0,
         color: settings.isAmoledDark ? const Color(0xFF121212) : null,

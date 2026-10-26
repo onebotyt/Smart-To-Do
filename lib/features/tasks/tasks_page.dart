@@ -272,56 +272,87 @@ class _TasksPageState extends State<TasksPage> {
 
               const SizedBox(height: 6),
 
-              // Task List
+              // Task List with smooth AnimatedSwitcher
               Expanded(
-                child: c.tasks.isEmpty
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(32),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.task_outlined,
-                                size: 64,
-                                color: theme.colorScheme.primary.withValues(alpha: 0.4),
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                c.filter == TaskFilter.completed
-                                    ? 'No completed tasks yet'
-                                    : 'All caught up!',
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                c.filter == TaskFilter.completed
-                                    ? 'Completed tasks will appear here.'
-                                    : 'Tap the + button to write your first task.',
-                                style: const TextStyle(color: Colors.grey),
-                              ),
-                              const SizedBox(height: 16),
-                              if (c.filter != TaskFilter.completed)
-                                FilledButton.tonalIcon(
-                                  icon: const Icon(Icons.add),
-                                  label: const Text('Create Task'),
-                                  onPressed: () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(builder: (_) => const TaskEditPage()),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 220),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, anim) => FadeTransition(
+                    opacity: anim,
+                    child: child,
+                  ),
+                  child: c.tasks.isEmpty
+                      ? KeyedSubtree(
+                          key: ValueKey('empty_${c.filter}'),
+                          child: Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(32),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.task_outlined,
+                                    size: 64,
+                                    color: theme.colorScheme.primary.withValues(alpha: 0.4),
                                   ),
-                                ),
-                            ],
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    c.filter == TaskFilter.completed
+                                        ? 'No completed tasks yet'
+                                        : 'All caught up!',
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    c.filter == TaskFilter.completed
+                                        ? 'Completed tasks will appear here.'
+                                        : 'Tap the + button to write your first task.',
+                                    style: const TextStyle(color: Colors.grey),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  if (c.filter != TaskFilter.completed)
+                                    FilledButton.tonalIcon(
+                                      icon: const Icon(Icons.add),
+                                      label: const Text('Create Task'),
+                                      onPressed: () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(builder: (_) => const TaskEditPage()),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
                           ),
+                        )
+                      : ListView.builder(
+                          key: ValueKey('list_${c.filter}_${c.selectedCategory}'),
+                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
+                          itemCount: c.tasks.length,
+                          itemBuilder: (context, i) {
+                            final task = c.tasks[i];
+                            return TweenAnimationBuilder<double>(
+                              key: ValueKey(task.id),
+                              tween: Tween(begin: 0.0, end: 1.0),
+                              duration: Duration(milliseconds: 160 + (i < 8 ? i * 20 : 160)),
+                              curve: Curves.easeOutCubic,
+                              builder: (context, value, child) {
+                                return Opacity(
+                                  opacity: value,
+                                  child: Transform.translate(
+                                    offset: Offset(0, 8 * (1 - value)),
+                                    child: child,
+                                  ),
+                                );
+                              },
+                              child: _TaskCard(task: task),
+                            );
+                          },
                         ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
-                        itemCount: c.tasks.length,
-                        itemBuilder: (context, i) => _TaskCard(task: c.tasks[i]),
-                      ),
+                ),
               ),
             ],
           ),
@@ -350,7 +381,8 @@ class _TasksPageState extends State<TasksPage> {
       borderRadius: BorderRadius.circular(20),
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
           color: active ? theme.colorScheme.primary : theme.colorScheme.surfaceContainerLow,
@@ -360,14 +392,24 @@ class _TasksPageState extends State<TasksPage> {
                 ? theme.colorScheme.primary
                 : theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
           ),
+          boxShadow: active
+              ? [
+                  BoxShadow(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.28),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
-        child: Text(
-          label,
+        child: AnimatedDefaultTextStyle(
+          duration: const Duration(milliseconds: 180),
           style: TextStyle(
             fontSize: 12,
             fontWeight: active ? FontWeight.bold : FontWeight.w500,
             color: active ? Colors.white : theme.colorScheme.onSurface,
           ),
+          child: Text(label),
         ),
       ),
     );
@@ -401,61 +443,76 @@ class _TaskCard extends StatelessWidget {
       ),
       direction: DismissDirection.endToStart,
       onDismissed: (_) => c.remove(task),
-      child: Card(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: BorderSide(
-            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-            width: 0.8,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        opacity: task.completed ? 0.65 : 1.0,
+        child: Card(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+              width: 0.8,
+            ),
           ),
-        ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => TaskEditPage(task: task)),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // Completion Checkbox
-                Checkbox(
-                  value: task.completed,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
-                  onChanged: (_) => c.toggle(task),
-                ),
-
-                // Priority Indicator
-                Container(
-                  width: 4,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: priorityColor,
-                    borderRadius: BorderRadius.circular(2),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => TaskEditPage(task: task)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Completion Checkbox with animated scale pop
+                  AnimatedScale(
+                    duration: const Duration(milliseconds: 150),
+                    scale: task.completed ? 1.08 : 1.0,
+                    child: Checkbox(
+                      value: task.completed,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+                      onChanged: (_) => c.toggle(task),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
 
-                // Task content
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        task.notes.isNotEmpty ? task.notes : task.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          decoration: task.completed ? TextDecoration.lineThrough : null,
-                          color: task.completed ? Colors.grey : null,
+                  // Priority Indicator
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 4,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: priorityColor,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+
+                  // Task content with animated text style transition
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AnimatedDefaultTextStyle(
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeInOut,
+                          style: TextStyle(
+                            fontFamily: theme.textTheme.bodyMedium?.fontFamily,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            decoration: task.completed ? TextDecoration.lineThrough : null,
+                            decorationColor: Colors.grey,
+                            color: task.completed ? Colors.grey : theme.colorScheme.onSurface,
+                          ),
+                          child: Text(
+                            task.notes.isNotEmpty ? task.notes : task.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
                       const SizedBox(height: 4),
                       Row(
                         children: [
@@ -509,8 +566,9 @@ class _TaskCard extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   static bool _isOverdue(int dueMs) {
     return dueMs < DateTime.now().millisecondsSinceEpoch;
