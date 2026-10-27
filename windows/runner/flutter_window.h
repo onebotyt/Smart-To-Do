@@ -36,6 +36,8 @@ class FlutterWindow : public Win32Window {
   std::unique_ptr<flutter::FlutterViewController> flutter_controller_;
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> window_channel_;
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> startup_channel_;
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> update_channel_;
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> settings_channel_;
 
   std::string current_mode_ = "normal";
   RECT normal_rect_ = {100, 100, 1124, 820};

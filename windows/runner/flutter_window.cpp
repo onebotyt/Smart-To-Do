@@ -3,6 +3,8 @@
 #include <optional>
 #include <windows.h>
 #include <dwmapi.h>
+#include <shellapi.h>
+#include <vector>
 
 #include "flutter/generated_plugin_registrant.h"
 
@@ -346,6 +348,127 @@ bool FlutterWindow::OnCreate() {
     }
   });
 
+  // Native Win32 Update Channel (Silent installer with zero cmd.exe window)
+  update_channel_ =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          flutter_controller_->engine()->messenger(), "com.synctask/native_update",
+          &flutter::StandardMethodCodec::GetInstance());
+
+  update_channel_->SetMethodCallHandler([this](const auto& call, auto result) {
+    if (call.method_name() == "installUpdate") {
+      std::string installer_path;
+      bool is_zip = false;
+      if (const auto* args = std::get_if<flutter::EncodableMap>(call.arguments())) {
+        auto itPath = args->find(flutter::EncodableValue("installerPath"));
+        if (itPath != args->end() && std::holds_alternative<std::string>(itPath->second)) {
+          installer_path = std::get<std::string>(itPath->second);
+        }
+        auto itZip = args->find(flutter::EncodableValue("isZip"));
+        if (itZip != args->end() && std::holds_alternative<bool>(itZip->second)) {
+          is_zip = std::get<bool>(itZip->second);
+        }
+      }
+
+      if (installer_path.empty()) {
+        result->Error("BAD_ARGS", "Missing installerPath");
+        return;
+      }
+
+      int len = MultiByteToWideChar(CP_UTF8, 0, installer_path.c_str(), -1, nullptr, 0);
+      std::wstring wInstallerPath(len, 0);
+      MultiByteToWideChar(CP_UTF8, 0, installer_path.c_str(), -1, &wInstallerPath[0], len);
+      if (!wInstallerPath.empty() && wInstallerPath.back() == L'\0') {
+        wInstallerPath.pop_back();
+      }
+
+      if (!is_zip) {
+        // Official Inno Setup installer execution: completely silent, no console window
+        SHELLEXECUTEINFOW sei = { sizeof(sei) };
+        sei.cbSize = sizeof(sei);
+        sei.fMask = SEE_MASK_FLAG_NO_UI | SEE_MASK_NOZONECHECKS;
+        sei.lpVerb = L"open";
+        sei.lpFile = wInstallerPath.c_str();
+        sei.lpParameters = L"/VERYSILENT /SUPPRESSMSGBOXES /FORCECLOSEAPPLICATIONS";
+        sei.nShow = SW_HIDE;
+
+        if (ShellExecuteExW(&sei)) {
+          result->Success(flutter::EncodableValue(true));
+          HWND hwnd = this->GetHandle();
+          if (hwnd) {
+            DestroyWindow(hwnd);
+          }
+          PostQuitMessage(0);
+          return;
+        } else {
+          DWORD err = GetLastError();
+          result->Error("INSTALL_FAILED", "ShellExecuteExW failed: " + std::to_string(err));
+          return;
+        }
+      } else {
+        wchar_t currentExe[MAX_PATH];
+        GetModuleFileNameW(nullptr, currentExe, MAX_PATH);
+        std::wstring exeDir = currentExe;
+        size_t lastSlash = exeDir.find_last_of(L"\\/");
+        if (lastSlash != std::wstring::npos) {
+          exeDir = exeDir.substr(0, lastSlash);
+        }
+
+        std::wstring cmd = L"powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -Command \"Start-Sleep -Seconds 1; Expand-Archive -Path '" +
+                           wInstallerPath + L"' -DestinationPath '" + exeDir + L"' -Force; Start-Process '" + currentExe + L"'\"";
+
+        STARTUPINFOW si = { sizeof(si) };
+        si.cbSize = sizeof(si);
+        si.dwFlags = STARTF_USESHOWWINDOW;
+        si.wShowWindow = SW_HIDE;
+        PROCESS_INFORMATION pi = { 0 };
+
+        std::vector<wchar_t> cmdBuf(cmd.begin(), cmd.end());
+        cmdBuf.push_back(0);
+
+        if (CreateProcessW(nullptr, cmdBuf.data(), nullptr, nullptr, FALSE,
+                           CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
+          CloseHandle(pi.hProcess);
+          CloseHandle(pi.hThread);
+          result->Success(flutter::EncodableValue(true));
+          HWND hwnd = this->GetHandle();
+          if (hwnd) {
+            DestroyWindow(hwnd);
+          }
+          PostQuitMessage(0);
+          return;
+        } else {
+          result->Error("EXTRACT_FAILED", "CreateProcessW failed");
+          return;
+        }
+      }
+    } else {
+      result->NotImplemented();
+    }
+  });
+
+  // Native Win32 Settings Channel (Bluetooth, Wi-Fi, Hotspot)
+  settings_channel_ =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          flutter_controller_->engine()->messenger(), "com.synctask/native_settings",
+          &flutter::StandardMethodCodec::GetInstance());
+
+  settings_channel_->SetMethodCallHandler([](const auto& call, auto result) {
+    if (call.method_name() == "openBluetoothSettings") {
+      ShellExecuteW(nullptr, L"open", L"ms-settings:bluetooth", nullptr, nullptr, SW_SHOWNORMAL);
+      result->Success(flutter::EncodableValue(true));
+    } else if (call.method_name() == "openWifiSettings") {
+      ShellExecuteW(nullptr, L"open", L"ms-settings:network-wifi", nullptr, nullptr, SW_SHOWNORMAL);
+      result->Success(flutter::EncodableValue(true));
+    } else if (call.method_name() == "openHotspotSettings") {
+      ShellExecuteW(nullptr, L"open", L"ms-settings:network-mobilehotspot", nullptr, nullptr, SW_SHOWNORMAL);
+      result->Success(flutter::EncodableValue(true));
+    } else if (call.method_name() == "isBluetoothEnabled") {
+      result->Success(flutter::EncodableValue(true));
+    } else {
+      result->NotImplemented();
+    }
+  });
+
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();
   });
@@ -359,6 +482,8 @@ void FlutterWindow::OnDestroy() {
   if (flutter_controller_) {
     window_channel_ = nullptr;
     startup_channel_ = nullptr;
+    update_channel_ = nullptr;
+    settings_channel_ = nullptr;
     flutter_controller_ = nullptr;
   }
 
