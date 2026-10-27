@@ -1,7 +1,12 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../platform/window_service.dart';
+import '../media_transfer/media_transfer_controller.dart';
+import '../media_transfer/models/media_transfer.dart';
 import '../tasks/task_controller.dart';
 
 class DesktopFloatingBubble extends StatefulWidget {
@@ -18,6 +23,9 @@ class _DesktopFloatingBubbleState extends State<DesktopFloatingBubble>
   bool _isHovered = false;
   Offset _pointerDownPos = Offset.zero;
   bool _didDrag = false;
+  StreamSubscription? _mediaSub;
+  MediaTransferItem? _recentMedia;
+  Timer? _recentDismissTimer;
 
   @override
   void initState() {
@@ -30,12 +38,40 @@ class _DesktopFloatingBubbleState extends State<DesktopFloatingBubble>
     _scaleAnimation = Tween<double>(begin: 0.96, end: 1.04).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOutSine),
     );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final mediaCtrl = context.read<MediaTransferController?>();
+      if (mediaCtrl != null) {
+        _mediaSub = mediaCtrl.onMediaReceived.listen((item) {
+          if (mounted) {
+            setState(() => _recentMedia = item);
+            _pulseController.duration = const Duration(milliseconds: 500);
+            _pulseController.repeat(reverse: true);
+            _recentDismissTimer?.cancel();
+            _recentDismissTimer = Timer(const Duration(seconds: 6), () {
+              if (mounted) {
+                setState(() => _recentMedia = null);
+                _pulseController.duration = const Duration(milliseconds: 2400);
+                _pulseController.repeat(reverse: true);
+              }
+            });
+          }
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
+    _mediaSub?.cancel();
+    _recentDismissTimer?.cancel();
     _pulseController.dispose();
     super.dispose();
+  }
+
+  bool _isImageFile(String path) {
+    final ext = path.split('.').last.toLowerCase();
+    return ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'].contains(ext);
   }
 
   @override
@@ -116,14 +152,23 @@ class _DesktopFloatingBubbleState extends State<DesktopFloatingBubble>
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        // Center Checkmark Logo
+                        // Center Content: Either Recent Image Thumbnail or Checkmark Logo
                         ClipOval(
-                          child: Image.asset(
-                            'assets/logo.png',
-                            width: 66,
-                            height: 66,
-                            fit: BoxFit.contain,
-                          ),
+                          child: (_recentMedia != null &&
+                                  File(_recentMedia!.filePath).existsSync() &&
+                                  _isImageFile(_recentMedia!.filePath))
+                              ? Image.file(
+                                  File(_recentMedia!.filePath),
+                                  width: 66,
+                                  height: 66,
+                                  fit: BoxFit.cover,
+                                )
+                              : Image.asset(
+                                  'assets/logo.png',
+                                  width: 66,
+                                  height: 66,
+                                  fit: BoxFit.contain,
+                                ),
                         ),
 
                         // Pending tasks badge

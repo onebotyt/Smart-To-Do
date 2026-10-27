@@ -25,18 +25,46 @@ class TasksPage extends StatefulWidget {
   State<TasksPage> createState() => _TasksPageState();
 }
 
-class _TasksPageState extends State<TasksPage> {
+class _TasksPageState extends State<TasksPage> with WidgetsBindingObserver {
   AppRelease? _availableUpdate;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkForUpdates();
-    if (Platform.isAndroid) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (Platform.isAndroid) {
         _checkAndroidOverlayPermission();
-      });
+      }
+      _checkPendingAction();
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkPendingAction();
     }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  Future<void> _checkPendingAction() async {
+    if (!Platform.isAndroid) return;
+    try {
+      final action = await PlatformFloatingPanelService().checkPendingAction();
+      if (action == 'open_create_task' && mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const TaskEditPage()),
+        );
+      }
+    } catch (_) {}
   }
 
   Future<void> _checkAndroidOverlayPermission() async {
@@ -101,6 +129,7 @@ class _TasksPageState extends State<TasksPage> {
     final allCount = allTasks.length;
     final pendingCount = allTasks.where((t) => !t.completed).length;
     final completedCount = allTasks.where((t) => t.completed).length;
+    final isMobile = MediaQuery.of(context).size.width < 560;
 
     return Scaffold(
       appBar: AppBar(
@@ -108,19 +137,194 @@ class _TasksPageState extends State<TasksPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ClipOval(
-              child: Image.asset('assets/logo.png', width: 28, height: 28),
+              child: Image.asset('assets/logo.png', width: 26, height: 26),
             ),
             const SizedBox(width: 8),
             const Text(
               'SyncTask',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
-            const SizedBox(width: 8),
-            _buildHeaderConnectionStatus(context, sync, theme),
+            if (!isMobile) ...[
+              const SizedBox(width: 8),
+              _buildHeaderConnectionStatus(context, sync, theme),
+            ] else if (isConnected) ...[
+              const SizedBox(width: 6),
+              _buildHeaderConnectionStatus(context, sync, theme, compact: true),
+            ],
           ],
         ),
-        actions: [
-          // Floating Desktop Bubble / Screen Bubble Toggle
+        actions: isMobile
+            ? [
+                _HeaderActionButton(
+                  icon: Icons.swap_horizontal_circle_outlined,
+                  tooltip: 'Media & File Sharing',
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MediaSharingPage()),
+                  ),
+                ),
+                _HeaderActionButton(
+                  icon: Icons.devices,
+                  tooltip: 'Devices & Sync',
+                  isActive: isConnected,
+                  activeColor: isDark ? const Color(0xFF4ADE80) : const Color(0xFF16A34A),
+                  activeBackgroundColor: isDark ? const Color(0x2822C55E) : const Color(0x1F16A34A),
+                  badge: isConnected
+                      ? Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF16A34A),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: theme.colorScheme.surface, width: 1.5),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF22C55E).withValues(alpha: 0.8),
+                                blurRadius: 4,
+                                spreadRadius: 1,
+                              ),
+                            ],
+                          ),
+                        )
+                      : (hasDevices
+                          ? Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primary,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                '${sync!.devices.length}',
+                                style: const TextStyle(
+                                  fontSize: 8,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            )
+                          : null),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const DevicesPage()),
+                  ),
+                ),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert),
+                  tooltip: 'More actions',
+                  onSelected: (val) async {
+                    if (val == 'bubble') {
+                      if (Platform.isWindows) {
+                        PlatformWindowService.setWindowMode(AppWindowMode.bubble);
+                      } else {
+                        final next = !settings.isFloatingBubbleEnabled;
+                        settings.setFloatingBubbleEnabled(next);
+                        if (next && Platform.isAndroid) {
+                          final hasPerm = await PlatformFloatingPanelService().hasPermission();
+                          if (!hasPerm && context.mounted) {
+                            PlatformFloatingPanelService().requestPermission();
+                          }
+                        }
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(next ? 'Floating bubble enabled' : 'Floating bubble hidden'),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      }
+                    } else if (val == 'panel') {
+                      if (Platform.isWindows) {
+                        PlatformWindowService.setWindowMode(AppWindowMode.panel);
+                      } else {
+                        showDialog(
+                          context: context,
+                          barrierColor: Colors.black38,
+                          builder: (ctx) => Center(
+                            child: FloatingTaskPanel(
+                              onClose: () => Navigator.pop(ctx),
+                              onExpand: () => Navigator.pop(ctx),
+                            ),
+                          ),
+                        );
+                      }
+                    } else if (val == 'sync') {
+                      final taskCtrl = context.read<TaskController>();
+                      if (sync != null) {
+                        await sync.syncAll();
+                      }
+                      await taskCtrl.refresh();
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(sync?.statusMessage ?? 'Tasks refreshed & synced!'),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    } else if (val == 'settings') {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SettingsPage()),
+                      );
+                    }
+                  },
+                  itemBuilder: (ctx) => [
+                    PopupMenuItem(
+                      value: 'bubble',
+                      child: Row(
+                        children: [
+                          Icon(
+                            settings.isFloatingBubbleEnabled
+                                ? Icons.bubble_chart
+                                : Icons.bubble_chart_outlined,
+                            size: 20,
+                            color: settings.isFloatingBubbleEnabled ? theme.colorScheme.primary : null,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(settings.isFloatingBubbleEnabled
+                              ? 'Floating Bubble (Enabled)'
+                              : 'Enable Floating Bubble'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'panel',
+                      child: Row(
+                        children: [
+                          Icon(Icons.picture_in_picture_alt_outlined, size: 20),
+                          SizedBox(width: 12),
+                          Text('Floating Quick Panel'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'sync',
+                      child: Row(
+                        children: [
+                          Icon(Icons.sync, size: 20),
+                          SizedBox(width: 12),
+                          Text('Sync & Refresh'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuDivider(),
+                    const PopupMenuItem(
+                      value: 'settings',
+                      child: Row(
+                        children: [
+                          Icon(Icons.settings_outlined, size: 20),
+                          SizedBox(width: 12),
+                          Text('Settings'),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 4),
+              ]
+            : [
+                // Floating Desktop Bubble / Screen Bubble Toggle
           _HeaderActionButton(
             icon: settings.isFloatingBubbleEnabled
                 ? Icons.bubble_chart
@@ -567,8 +771,9 @@ class _TasksPageState extends State<TasksPage> {
   Widget _buildHeaderConnectionStatus(
     BuildContext context,
     SyncController? sync,
-    ThemeData theme,
-  ) {
+    ThemeData theme, {
+    bool compact = false,
+  }) {
     if (sync == null) return const SizedBox.shrink();
     if (sync.isSyncing) {
       return Container(
@@ -656,13 +861,13 @@ class _TasksPageState extends State<TasksPage> {
                 ),
                 const SizedBox(width: 5),
                 ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 110),
+                  constraints: BoxConstraints(maxWidth: compact ? 70 : 110),
                   child: Text(
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 10.5,
+                      fontSize: compact ? 9.5 : 10.5,
                       fontWeight: FontWeight.bold,
                       color: greenColor,
                     ),

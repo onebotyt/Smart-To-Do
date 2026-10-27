@@ -14,6 +14,7 @@ import 'features/media_transfer/media_transfer_controller.dart';
 import 'features/settings/settings_controller.dart';
 import 'features/sync/sync_controller.dart';
 import 'features/tasks/task_controller.dart';
+import 'platform/native_media_service.dart';
 import 'platform/window_service.dart';
 
 Future<void> main([List<String> args = const []]) async {
@@ -52,6 +53,25 @@ Future<void> main([List<String> args = const []]) async {
 
   syncController.engine.onTasksReceived = () {
     taskController.refresh();
+  };
+
+  syncController.engine.onRemoteTasksApplied = (tasks) {
+    for (final t in tasks) {
+      if (t.deleted) continue;
+      if (Platform.isWindows) {
+        if (t.completed) {
+          NativeMediaService.notifyMediaReceived(
+            title: 'SyncTask: Task Completed',
+            message: '"${t.title}" was marked complete',
+          );
+        } else {
+          NativeMediaService.notifyMediaReceived(
+            title: 'SyncTask: New Task from Phone',
+            message: t.title,
+          );
+        }
+      }
+    }
   };
 
 

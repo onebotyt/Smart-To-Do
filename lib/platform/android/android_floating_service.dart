@@ -84,4 +84,20 @@ class AndroidFloatingService {
       await show();
     }
   }
+
+  Future<void> notifyTasksChanged() async {
+    if (!isSupported) return;
+    try {
+      await _channel.invokeMethod('notifyTasksChanged');
+    } catch (_) {}
+  }
+
+  Future<String?> checkPendingAction() async {
+    if (!isSupported) return null;
+    try {
+      return await _channel.invokeMethod<String>('checkPendingAction');
+    } catch (_) {
+      return null;
+    }
+  }
 }

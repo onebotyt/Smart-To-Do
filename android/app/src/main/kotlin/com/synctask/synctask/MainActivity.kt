@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.net.wifi.WifiManager
 import android.os.Build
+import android.os.Bundle
 import android.provider.Settings
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
@@ -18,8 +19,24 @@ class MainActivity : FlutterActivity() {
     private val FLOATING_CHANNEL = "com.synctask/floating_panel"
     private val INSTALLER_CHANNEL = "com.synctask/installer"
     private val SETTINGS_CHANNEL = "com.synctask/native_settings"
+    private val MEDIA_CHANNEL = "com.synctask/media_share"
 
     private var multicastLock: WifiManager.MulticastLock? = null
+    private var pendingAction: String? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        if (intent?.getBooleanExtra("open_create_task", false) == true) {
+            pendingAction = "create_task"
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (intent.getBooleanExtra("open_create_task", false)) {
+            pendingAction = "create_task"
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -144,6 +161,15 @@ class MainActivity : FlutterActivity() {
                     "isVisible" -> {
                         result.success(FloatingBubbleService.isRunning)
                     }
+                    "notifyTasksChanged" -> {
+                        FloatingBubbleService.notifyTasksChanged()
+                        result.success(true)
+                    }
+                    "checkPendingAction" -> {
+                        val action = pendingAction
+                        pendingAction = null
+                        result.success(action)
+                    }
                     "openAppSettings" -> {
                         val intent = Intent(
                             Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
@@ -186,6 +212,74 @@ class MainActivity : FlutterActivity() {
                     }
                 } else {
                     result.notImplemented()
+                }
+            }
+
+        // Native Media Sharing & Clipboard Image Channel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, MEDIA_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "shareFile" -> {
+                        val filePath = call.argument<String>("filePath")
+                        val mimeType = call.argument<String>("mimeType") ?: "*/*"
+                        if (filePath != null) {
+                            try {
+                                val file = File(filePath)
+                                if (!file.exists()) {
+                                    result.error("NOT_FOUND", "File does not exist: $filePath", null)
+                                    return@setMethodCallHandler
+                                }
+                                val uri = FileProvider.getUriForFile(
+                                    context,
+                                    "$packageName.fileprovider",
+                                    file
+                                )
+                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = mimeType
+                                    putExtra(Intent.EXTRA_STREAM, uri)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                val chooser = Intent.createChooser(shareIntent, "Share with").apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                startActivity(chooser)
+                                result.success(true)
+                            } catch (e: Exception) {
+                                result.error("SHARE_FAILED", e.message, null)
+                            }
+                        } else {
+                            result.error("BAD_ARGS", "Missing filePath", null)
+                        }
+                    }
+                    "getClipboardImage" -> {
+                        try {
+                            val clipManager = getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                            val clip = clipManager?.primaryClip
+                            if (clip != null && clip.itemCount > 0) {
+                                val item = clip.getItemAt(0)
+                                val uri = item.uri
+                                if (uri != null) {
+                                    val resolver = contentResolver
+                                    val type = resolver.getType(uri) ?: "image/png"
+                                    if (type.startsWith("image/")) {
+                                        val ext = if (type.contains("jpeg") || type.contains("jpg")) ".jpg" else ".png"
+                                        val tempFile = File(cacheDir, "clipboard_screenshot_${System.currentTimeMillis()}$ext")
+                                        resolver.openInputStream(uri)?.use { input ->
+                                            tempFile.outputStream().use { output ->
+                                                input.copyTo(output)
+                                            }
+                                        }
+                                        result.success(tempFile.absolutePath)
+                                        return@setMethodCallHandler
+                                    }
+                                }
+                            }
+                            result.success(null)
+                        } catch (e: Exception) {
+                            result.success(null)
+                        }
+                    }
+                    else -> result.notImplemented()
                 }
             }
     }

@@ -9,7 +9,10 @@ import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
+import android.os.FileObserver
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.provider.Settings
 import android.text.InputType
 import android.text.TextUtils
@@ -37,19 +40,34 @@ class FloatingBubbleService : Service() {
     private var panelContainer: FrameLayout? = null
 
     private var bubbleParams: WindowManager.LayoutParams? = null
+    private var panelParams: WindowManager.LayoutParams? = null
     private var isPanelOpen = false
+
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var dbFileObserver: FileObserver? = null
+    private var refreshTaskListCallback: (() -> Unit)? = null
+    private var isCompactSize = false
 
     data class OverlayTask(val id: String, val title: String, val priority: Int)
 
     companion object {
         var isRunning: Boolean = false
             private set
+        private var instance: FloatingBubbleService? = null
+
+        fun notifyTasksChanged() {
+            instance?.mainHandler?.post {
+                instance?.refreshTaskListCallback?.invoke()
+            }
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
             stopSelf()
             return
@@ -137,7 +155,7 @@ class FloatingBubbleService : Service() {
                         val dx = (event.rawX - initialTouchX).toInt()
                         val dy = (event.rawY - initialTouchY).toInt()
                         val distance = Math.hypot(dx.toDouble(), dy.toDouble())
-                        if (!isDragging && distance > 12 * density) {
+                        if (!isDragging && distance > 10 * density) {
                             isDragging = true
                         }
                         if (isDragging) {
@@ -156,7 +174,7 @@ class FloatingBubbleService : Service() {
                         val distance = Math.hypot(dx.toDouble(), dy.toDouble())
 
                         // Single Tap: open the Floating Task Panel!
-                        if (!isDragging || (touchDuration < 400 && distance < 25 * density)) {
+                        if (!isDragging || (touchDuration < 400 && distance < 20 * density)) {
                             showFloatingPanel()
                         } else {
                             // Drag gesture finished: snap bubble to nearest screen edge
@@ -180,9 +198,33 @@ class FloatingBubbleService : Service() {
         try {
             windowManager?.addView(bubbleContainer, params)
             isRunning = true
+            startDbObserver()
         } catch (_: Exception) {
             stopSelf()
         }
+    }
+
+    private fun startDbObserver() {
+        val dbFile = File(filesDir, "synctask.db")
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                dbFileObserver = object : FileObserver(dbFile, CLOSE_WRITE or MODIFY or CREATE) {
+                    override fun onEvent(event: Int, path: String?) {
+                        notifyTasksChanged()
+                    }
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                dbFileObserver = object : FileObserver(filesDir.path, CLOSE_WRITE or MODIFY or CREATE) {
+                    override fun onEvent(event: Int, path: String?) {
+                        if (path == null || path.contains("synctask.db")) {
+                            notifyTasksChanged()
+                        }
+                    }
+                }
+            }
+            dbFileObserver?.startWatching()
+        } catch (_: Exception) {}
     }
 
     private fun showFloatingPanel() {
@@ -193,8 +235,9 @@ class FloatingBubbleService : Service() {
         val screenWidth = metrics.widthPixels
         val screenHeight = metrics.heightPixels
 
-        val panelWidth = (320 * density).toInt().coerceAtMost(screenWidth - (24 * density).toInt())
-        val panelHeight = (440 * density).toInt().coerceAtMost(screenHeight - (64 * density).toInt())
+        val panelWidth = (330 * density).toInt().coerceAtMost(screenWidth - (20 * density).toInt())
+        val initialHeight = if (isCompactSize) (310 * density).toInt() else (460 * density).toInt()
+        val panelHeight = initialHeight.coerceAtMost(screenHeight - (50 * density).toInt())
 
         val layoutFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -206,10 +249,10 @@ class FloatingBubbleService : Service() {
         // Calculate position near bubble, clamped to screen
         val bX = bubbleParams?.x ?: (screenWidth - panelWidth - (16 * density).toInt())
         val bY = bubbleParams?.y ?: (screenHeight / 4)
-        val panelX = (bX - (panelWidth / 2)).coerceIn((12 * density).toInt(), screenWidth - panelWidth - (12 * density).toInt())
-        val panelY = (bY - (panelHeight / 3)).coerceIn((36 * density).toInt(), screenHeight - panelHeight - (36 * density).toInt())
+        val panelX = (bX - (panelWidth / 3)).coerceIn((10 * density).toInt(), screenWidth - panelWidth - (10 * density).toInt())
+        val panelY = (bY - (panelHeight / 3)).coerceIn((30 * density).toInt(), screenHeight - panelHeight - (30 * density).toInt())
 
-        val panelParams = WindowManager.LayoutParams(
+        val pParams = WindowManager.LayoutParams(
             panelWidth,
             panelHeight,
             layoutFlag,
@@ -221,6 +264,7 @@ class FloatingBubbleService : Service() {
             x = panelX
             y = panelY
         }
+        panelParams = pParams
 
         // Panel Container Card
         val root = FrameLayout(this).apply {
@@ -238,20 +282,83 @@ class FloatingBubbleService : Service() {
 
         val mainLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            val pad = (14 * density).toInt()
+            val pad = (12 * density).toInt()
             setPadding(pad, pad, pad, pad)
         }
 
-        // 1. Header Row
+        // Top Drag Handle Bar
+        val handleBarContainer = LinearLayout(this).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, (6 * density).toInt())
+        }
+        val handleBar = View(this).apply {
+            val bg = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 2 * density
+                setColor(Color.parseColor("#475569"))
+            }
+            background = bg
+            layoutParams = LinearLayout.LayoutParams((38 * density).toInt(), (4 * density).toInt())
+        }
+        handleBarContainer.addView(handleBar)
+        mainLayout.addView(handleBarContainer)
+
+        // 1. Header Row (Draggable touch area)
         val headerRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 0, 0, (10 * density).toInt())
+            setPadding(0, 0, 0, (8 * density).toInt())
         }
+
+        // Draggable Touch Listener on Header & HandleBar
+        val dragTouchListener = object : View.OnTouchListener {
+            private var startX = 0
+            private var startY = 0
+            private var touchX = 0f
+            private var touchY = 0f
+            private var isDragging = false
+
+            override fun onTouch(v: View, event: MotionEvent): Boolean {
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        startX = pParams.x
+                        startY = pParams.y
+                        touchX = event.rawX
+                        touchY = event.rawY
+                        isDragging = false
+                        return true
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        val dx = (event.rawX - touchX).toInt()
+                        val dy = (event.rawY - touchY).toInt()
+                        if (!isDragging && Math.hypot(dx.toDouble(), dy.toDouble()) > 8 * density) {
+                            isDragging = true
+                        }
+                        if (isDragging) {
+                            val curScreenWidth = resources.displayMetrics.widthPixels
+                            val curScreenHeight = resources.displayMetrics.heightPixels
+                            pParams.x = (startX + dx).coerceIn(0, curScreenWidth - pParams.width)
+                            pParams.y = (startY + dy).coerceIn((16 * density).toInt(), curScreenHeight - pParams.height)
+                            try {
+                                windowManager?.updateViewLayout(panelContainer, pParams)
+                            } catch (_: Exception) {}
+                        }
+                        return true
+                    }
+                    MotionEvent.ACTION_UP -> {
+                        return true
+                    }
+                }
+                return false
+            }
+        }
+
+        headerRow.setOnTouchListener(dragTouchListener)
+        handleBarContainer.setOnTouchListener(dragTouchListener)
 
         val iconView = ImageView(this).apply {
             setImageResource(R.mipmap.ic_launcher)
-            val iconSize = (24 * density).toInt()
+            val iconSize = (22 * density).toInt()
             layoutParams = LinearLayout.LayoutParams(iconSize, iconSize).apply {
                 marginEnd = (8 * density).toInt()
             }
@@ -261,7 +368,7 @@ class FloatingBubbleService : Service() {
         val titleView = TextView(this).apply {
             text = "SyncTask"
             setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15.5f)
             typeface = Typeface.DEFAULT_BOLD
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -288,7 +395,7 @@ class FloatingBubbleService : Service() {
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
-                marginStart = (8 * density).toInt()
+                marginStart = (6 * density).toInt()
             }
         }
         headerRow.addView(badgeView)
@@ -299,26 +406,46 @@ class FloatingBubbleService : Service() {
         }
         headerRow.addView(spacer)
 
+        // Size Adjustment Toggle Button (Compact vs Expanded)
+        val sizeBtn = TextView(this).apply {
+            text = if (isCompactSize) "⤢" else "⤡"
+            setTextColor(Color.parseColor("#94A3B8"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding((6 * density).toInt(), (4 * density).toInt(), (6 * density).toInt(), (4 * density).toInt())
+            setOnClickListener {
+                isCompactSize = !isCompactSize
+                text = if (isCompactSize) "⤢" else "⤡"
+                val curScreenH = resources.displayMetrics.heightPixels
+                val targetHeight = if (isCompactSize) (310 * density).toInt() else (460 * density).toInt()
+                pParams.height = targetHeight.coerceAtMost(curScreenH - (50 * density).toInt())
+                try {
+                    windowManager?.updateViewLayout(panelContainer, pParams)
+                } catch (_: Exception) {}
+            }
+        }
+        headerRow.addView(sizeBtn)
+
         // Open Full App button (↗)
         val openAppBtn = TextView(this).apply {
             text = "↗"
             setTextColor(Color.parseColor("#94A3B8"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
             typeface = Typeface.DEFAULT_BOLD
-            setPadding((8 * density).toInt(), (4 * density).toInt(), (8 * density).toInt(), (4 * density).toInt())
+            setPadding((6 * density).toInt(), (4 * density).toInt(), (6 * density).toInt(), (4 * density).toInt())
             setOnClickListener {
-                openFullApp()
+                openFullApp(openCreateTask = false)
             }
         }
         headerRow.addView(openAppBtn)
 
-        // Close Panel button (✕)
+        // Close / Minimize Panel button (✕)
         val closeBtn = TextView(this).apply {
             text = "✕"
             setTextColor(Color.parseColor("#EF4444"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             typeface = Typeface.DEFAULT_BOLD
-            setPadding((8 * density).toInt(), (4 * density).toInt(), (8 * density).toInt(), (4 * density).toInt())
+            setPadding((6 * density).toInt(), (4 * density).toInt(), (6 * density).toInt(), (4 * density).toInt())
             setOnClickListener {
                 hideFloatingPanel()
             }
@@ -343,7 +470,7 @@ class FloatingBubbleService : Service() {
         scrollView.addView(taskListLayout)
         mainLayout.addView(scrollView)
 
-        // Refresh Tasks Function
+        // Refresh Tasks Function (Invoked in real time)
         fun refreshTaskList() {
             taskListLayout.removeAllViews()
             val tasks = loadPendingTasks()
@@ -355,9 +482,33 @@ class FloatingBubbleService : Service() {
                     setTextColor(Color.parseColor("#64748B"))
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
                     gravity = Gravity.CENTER
-                    setPadding(0, (40 * density).toInt(), 0, 0)
+                    setPadding(0, (30 * density).toInt(), 0, (20 * density).toInt())
                 }
                 taskListLayout.addView(emptyView)
+
+                // Direct button to create new task in full app
+                val createFirstBtn = Button(this).apply {
+                    text = "+ Create First Task"
+                    setTextColor(Color.WHITE)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+                    val bBg = GradientDrawable().apply {
+                        shape = GradientDrawable.RECTANGLE
+                        cornerRadius = 8 * density
+                        setColor(Color.parseColor("#2563EB"))
+                    }
+                    background = bBg
+                    val lp = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        (36 * density).toInt()
+                    ).apply {
+                        gravity = Gravity.CENTER_HORIZONTAL
+                    }
+                    layoutParams = lp
+                    setOnClickListener {
+                        openFullApp(openCreateTask = true)
+                    }
+                }
+                taskListLayout.addView(createFirstBtn)
                 return
             }
 
@@ -382,22 +533,33 @@ class FloatingBubbleService : Service() {
                     layoutParams = lp
                 }
 
-                // Complete Circle Button
+                // Checkbox / Circle Button (ONLY THIS COMPLETES TASK!)
                 val checkCircle = TextView(this).apply {
                     text = "○"
                     setTextColor(Color.parseColor("#3880FF"))
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
                     typeface = Typeface.DEFAULT_BOLD
+                    val pad = (6 * density).toInt()
+                    setPadding(pad, pad, pad, pad)
                     layoutParams = LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.WRAP_CONTENT,
                         LinearLayout.LayoutParams.WRAP_CONTENT
                     ).apply {
-                        marginEnd = (10 * density).toInt()
+                        marginEnd = (6 * density).toInt()
+                    }
+                    // ONLY CLICKING CHECKBOX COMPLETES!
+                    setOnClickListener {
+                        text = "✓"
+                        setTextColor(Color.parseColor("#10B981"))
+                        mainHandler.postDelayed({
+                            completeTask(task.id)
+                            refreshTaskList()
+                        }, 180)
                     }
                 }
                 row.addView(checkCircle)
 
-                // Task Title
+                // Task Title (Clicking opens the task in the full app instead of completing!)
                 val titleTv = TextView(this).apply {
                     text = task.title
                     setTextColor(Color.parseColor("#F1F5F9"))
@@ -405,10 +567,13 @@ class FloatingBubbleService : Service() {
                     maxLines = 2
                     ellipsize = TextUtils.TruncateAt.END
                     layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f)
+                    setOnClickListener {
+                        openFullApp(openCreateTask = false)
+                    }
                 }
                 row.addView(titleTv)
 
-                // Priority Indicator dot if high
+                // Priority Indicator dot if medium/high
                 if (task.priority >= 2) {
                     val priorityDot = View(this).apply {
                         val dotSize = (8 * density).toInt()
@@ -419,25 +584,26 @@ class FloatingBubbleService : Service() {
                         background = pBg
                         layoutParams = LinearLayout.LayoutParams(dotSize, dotSize).apply {
                             marginStart = (6 * density).toInt()
+                            marginEnd = (4 * density).toInt()
                         }
                     }
                     row.addView(priorityDot)
-                }
-
-                // Click on row completes task
-                row.setOnClickListener {
-                    completeTask(task.id)
-                    refreshTaskList()
                 }
 
                 taskListLayout.addView(row)
             }
         }
 
+        refreshTaskListCallback = {
+            if (isPanelOpen) {
+                refreshTaskList()
+            }
+        }
+
         // Initial task load
         refreshTaskList()
 
-        // 3. Quick-Add Input Row at Bottom
+        // 3. Quick-Add / Create Page Action Row at Bottom
         val inputRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -451,25 +617,25 @@ class FloatingBubbleService : Service() {
         }
 
         val inputEdit = EditText(this).apply {
-            hint = "Add quick task..."
+            hint = "Add quick task or tap + for full create..."
             setHintTextColor(Color.parseColor("#64748B"))
             setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
             imeOptions = EditorInfo.IME_ACTION_DONE
-            val eBg = GradientDrawable().apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+            val pad = (10 * density).toInt()
+            setPadding(pad, pad, pad, pad)
+            val iBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = 10 * density
                 setColor(Color.parseColor("#1C2333"))
-                setStroke((1 * density).toInt(), Color.parseColor("#334155"))
             }
-            background = eBg
-            val p = (10 * density).toInt()
-            setPadding(p, (8 * density).toInt(), p, (8 * density).toInt())
+            background = iBg
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f)
         }
         inputRow.addView(inputEdit)
 
+        // Action Button (+): If text entered, quickly creates; if empty, directly opens full Create Page!
         val addBtn = TextView(this).apply {
             text = "+"
             setTextColor(Color.WHITE)
@@ -492,6 +658,9 @@ class FloatingBubbleService : Service() {
                     createTask(t)
                     inputEdit.setText("")
                     refreshTaskList()
+                } else {
+                    // Direct open full create page when clicking + on empty input!
+                    openFullApp(openCreateTask = true)
                 }
             }
         }
@@ -504,6 +673,8 @@ class FloatingBubbleService : Service() {
                     createTask(t)
                     inputEdit.setText("")
                     refreshTaskList()
+                } else {
+                    openFullApp(openCreateTask = true)
                 }
                 true
             } else {
@@ -534,16 +705,23 @@ class FloatingBubbleService : Service() {
             } catch (_: Exception) {}
         }
         panelContainer = null
+        refreshTaskListCallback = null
         isPanelOpen = false
         bubbleContainer?.visibility = View.VISIBLE
     }
 
-    private fun openFullApp() {
+    private fun openFullApp(openCreateTask: Boolean = false) {
         hideFloatingPanel()
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+            if (openCreateTask) {
+                putExtra("open_create_task", true)
+            }
         } ?: Intent(this, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+            if (openCreateTask) {
+                putExtra("open_create_task", true)
+            }
         }
         try {
             startActivity(launchIntent)
@@ -634,6 +812,10 @@ class FloatingBubbleService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         hideFloatingPanel()
+        try {
+            dbFileObserver?.stopWatching()
+        } catch (_: Exception) {}
+        dbFileObserver = null
         bubbleContainer?.let {
             try {
                 windowManager?.removeView(it)
@@ -641,5 +823,8 @@ class FloatingBubbleService : Service() {
         }
         bubbleContainer = null
         isRunning = false
+        if (instance == this) {
+            instance = null
+        }
     }
 }

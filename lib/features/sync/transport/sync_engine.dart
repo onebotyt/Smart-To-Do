@@ -64,6 +64,7 @@ class SyncEngine {
 
   /// Callback when tasks are received and applied from a peer.
   void Function()? onTasksReceived;
+  void Function(List<Task> tasks)? onRemoteTasksApplied;
 
   /// Callback when a new device is paired and trusted (incoming or outgoing).
   void Function(Device device)? onDevicePaired;
@@ -282,15 +283,18 @@ class SyncEngine {
         } else if (msg.type == SyncMessageType.changes) {
           // 3. Inbound delta from server
           final tasksRaw = msg.payload['tasks'] as List<dynamic>? ?? [];
+          final appliedTasks = <Task>[];
           for (final raw in tasksRaw) {
             if (raw is Map<String, dynamic>) {
               final remoteTask = Task.fromMap(raw);
-              await _taskRepo.applyRemoteTask(remoteTask);
+              final applied = await _taskRepo.applyRemoteTask(remoteTask);
+              appliedTasks.add(applied);
               changesReceivedCount++;
             }
           }
           if (changesReceivedCount > 0) {
             onTasksReceived?.call();
+            onRemoteTasksApplied?.call(appliedTasks);
           }
         } else if (msg.type == SyncMessageType.versionVector) {
           // 4. Server sent its version vector; compute client delta for server
@@ -568,10 +572,12 @@ class SyncEngine {
     final localDeviceId = await _deviceRepo.getLocalDeviceId();
     final tasksRaw = msg.payload['tasks'] as List<dynamic>? ?? [];
 
+    final appliedTasks = <Task>[];
     for (final raw in tasksRaw) {
       if (raw is Map<String, dynamic>) {
         final remoteTask = Task.fromMap(raw);
-        await _taskRepo.applyRemoteTask(remoteTask);
+        final applied = await _taskRepo.applyRemoteTask(remoteTask);
+        appliedTasks.add(applied);
       }
     }
 
@@ -579,6 +585,7 @@ class SyncEngine {
     await _taskRepo.markChangesSynced();
     if (tasksRaw.isNotEmpty) {
       onTasksReceived?.call();
+      onRemoteTasksApplied?.call(appliedTasks);
     }
 
     // Send Ack to conclude the transaction

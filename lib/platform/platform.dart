@@ -5,6 +5,8 @@
 export 'clipboard_service.dart';
 export 'update_service.dart';
 export 'common/native_network_service.dart';
+export 'floating_panel_service.dart';
+export 'native_media_service.dart';
 
 // Android platform native services
 export 'android/android_widget_service.dart';

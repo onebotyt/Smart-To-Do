@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../features/floating_panel/desktop_floating_bubble.dart';
 import '../features/floating_panel/desktop_floating_panel.dart';
+import '../features/floating_panel/floating_bubble_overlay.dart';
 import '../features/settings/settings_controller.dart';
 import '../features/tasks/tasks_page.dart';
 import '../platform/window_service.dart';
@@ -81,7 +82,9 @@ class SyncTaskApp extends StatelessWidget {
             onExpand: () => PlatformWindowService.setWindowMode(AppWindowMode.normal),
           );
         } else {
-          content = const TasksPage();
+          content = const FloatingBubbleOverlay(
+            child: TasksPage(),
+          );
         }
 
         return MaterialApp(

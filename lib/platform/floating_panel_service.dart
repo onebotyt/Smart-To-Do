@@ -12,6 +12,8 @@ abstract class FloatingPanelService {
   Future<void> hide();
   Future<void> toggle();
   Stream<bool> get onVisibilityChanged;
+  Future<void> notifyTasksChanged();
+  Future<String?> checkPendingAction();
 }
 
 /// Default implementation communicating via MethodChannel when supported,
@@ -105,6 +107,24 @@ class PlatformFloatingPanelService implements FloatingPanelService {
       await hide();
     } else {
       await show();
+    }
+  }
+
+  @override
+  Future<void> notifyTasksChanged() async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod('notifyTasksChanged');
+    } catch (_) {}
+  }
+
+  @override
+  Future<String?> checkPendingAction() async {
+    if (!Platform.isAndroid) return null;
+    try {
+      return await _channel.invokeMethod<String>('checkPendingAction');
+    } catch (_) {
+      return null;
     }
   }
 

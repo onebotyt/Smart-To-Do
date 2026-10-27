@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../data/models/task.dart';
 import '../../data/repositories/task_repository.dart';
+import '../../platform/floating_panel_service.dart';
 import '../../platform/widget_service.dart';
 import '../settings/settings_controller.dart';
 
@@ -57,6 +58,7 @@ class TaskController extends ChangeNotifier {
       pendingCount: pendingTasks.length,
       topTaskTitles: pendingTasks.map((t) => t.title).toList(),
     );
+    PlatformFloatingPanelService().notifyTasksChanged();
 
     notifyListeners();
   }

@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:synctask/features/floating_panel/floating_task_panel.dart';
+import 'package:synctask/features/media_transfer/media_transfer_controller.dart';
+import 'package:synctask/features/media_transfer/widgets/media_deck_popup.dart';
 import 'package:synctask/features/settings/settings_controller.dart';
 import 'package:synctask/features/tasks/task_controller.dart';
 
@@ -14,13 +17,22 @@ class FloatingBubbleOverlay extends StatefulWidget {
 }
 
 class _FloatingBubbleOverlayState extends State<FloatingBubbleOverlay>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final ValueNotifier<Offset> _bubblePosition = ValueNotifier(Offset.zero);
   final ValueNotifier<Offset> _panelPosition = ValueNotifier(Offset.zero);
   bool _initialized = false;
   bool _isExpanded = false;
   bool _isDraggingBubble = false;
   Offset _panStartPoint = Offset.zero;
+
+  late final AnimationController _snapController;
+  Animation<Offset>? _snapAnimation;
+
+  late final AnimationController _pulseController;
+  late final Animation<double> _pulseAnimation;
+
+  Timer? _deckDismissTimer;
+  StreamSubscription? _mediaSubscription;
 
   void _openPanel(Size screenSize, double panelWidth, double panelHeight) {
     final bubblePos = _bubblePosition.value;
@@ -36,9 +48,6 @@ class _FloatingBubbleOverlayState extends State<FloatingBubbleOverlay>
     setState(() => _isExpanded = true);
   }
 
-  late final AnimationController _snapController;
-  Animation<Offset>? _snapAnimation;
-
   @override
   void initState() {
     super.initState();
@@ -50,10 +59,39 @@ class _FloatingBubbleOverlayState extends State<FloatingBubbleOverlay>
           _bubblePosition.value = _snapAnimation!.value;
         }
       });
+
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+
+    _pulseAnimation = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween<double>(begin: 1.0, end: 1.25).chain(CurveTween(curve: Curves.easeOutQuad)), weight: 40),
+      TweenSequenceItem(tween: Tween<double>(begin: 1.25, end: 0.95).chain(CurveTween(curve: Curves.easeInOutQuad)), weight: 30),
+      TweenSequenceItem(tween: Tween<double>(begin: 0.95, end: 1.0).chain(CurveTween(curve: Curves.easeInQuad)), weight: 30),
+    ]).animate(_pulseController);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final mediaCtrl = context.read<MediaTransferController?>();
+      if (mediaCtrl != null) {
+        _mediaSubscription = mediaCtrl.onMediaReceived.listen((item) {
+          _pulseController.forward(from: 0.0);
+          _deckDismissTimer?.cancel();
+          _deckDismissTimer = Timer(const Duration(seconds: 6), () {
+            if (mounted) {
+              mediaCtrl.dismissRecentMedia();
+            }
+          });
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
+    _mediaSubscription?.cancel();
+    _deckDismissTimer?.cancel();
+    _pulseController.dispose();
     _snapController.dispose();
     _bubblePosition.dispose();
     _panelPosition.dispose();
@@ -89,13 +127,17 @@ class _FloatingBubbleOverlayState extends State<FloatingBubbleOverlay>
     final pendingCount =
         taskController.tasks.where((t) => !t.completed).length;
 
+    final mediaCtrl = context.watch<MediaTransferController?>();
+    final recentMedia = mediaCtrl?.recentReceived ?? [];
+
     final mediaQuery = MediaQuery.of(context);
     final screenSize = mediaQuery.size;
 
+    // Position bubble higher up (middle right) so it NEVER overlaps "+ New Task" FAB!
     if (!_initialized) {
       _bubblePosition.value = Offset(
         screenSize.width - 72.0,
-        screenSize.height - 150.0,
+        (screenSize.height * 0.42).clamp(100.0, screenSize.height - 180.0),
       );
       _initialized = true;
     }
@@ -174,15 +216,44 @@ class _FloatingBubbleOverlayState extends State<FloatingBubbleOverlay>
             ),
           ),
 
-        // Collapsed Round Draggable Floating Bubble (Zero-rebuild 60/120fps drag!)
+        // Collapsed Round Draggable Floating Bubble + Deck-of-Cards Popup
         if (!_isExpanded)
           ValueListenableBuilder<Offset>(
             valueListenable: _bubblePosition,
             builder: (context, pos, child) {
-              return Positioned(
-                left: pos.dx,
-                top: pos.dy,
-                child: child!,
+              final isRightSide = pos.dx > (screenSize.width / 2);
+              final deckLeft = isRightSide ? (pos.dx - 100.0) : (pos.dx + 62.0);
+              final deckTop = (pos.dy - 30.0).clamp(20.0, screenSize.height - 130.0);
+
+              return Stack(
+                children: [
+                  // Deck-of-Cards Popup when media arrives
+                  if (recentMedia.isNotEmpty)
+                    Positioned(
+                      left: deckLeft,
+                      top: deckTop,
+                      child: MediaDeckBubblePopup(
+                        items: recentMedia,
+                        onDismiss: () => mediaCtrl?.dismissRecentMedia(),
+                        onTapDeck: () {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => DeckOfCardsGalleryModal(
+                              items: recentMedia,
+                              onDismissAll: () => mediaCtrl?.dismissRecentMedia(),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+
+                  // Bubble Position
+                  Positioned(
+                    left: pos.dx,
+                    top: pos.dy,
+                    child: child!,
+                  ),
+                ],
               );
             },
             child: RepaintBoundary(
@@ -269,73 +340,82 @@ class _FloatingBubbleOverlayState extends State<FloatingBubbleOverlay>
                     },
                   );
                 },
-                child: Material(
-                  elevation: 8,
-                  shape: const CircleBorder(),
-                  color: Colors.white,
-                  child: Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white,
-                      border: Border.all(
-                        color: const Color(0xFFE2E8F0),
-                        width: 1.5,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.15),
-                          blurRadius: 10,
-                          spreadRadius: 1,
-                          offset: const Offset(0, 4),
+                child: AnimatedBuilder(
+                  animation: _pulseAnimation,
+                  builder: (context, bubbleChild) {
+                    return Transform.scale(
+                      scale: _pulseAnimation.value,
+                      child: bubbleChild,
+                    );
+                  },
+                  child: Material(
+                    elevation: 8,
+                    shape: const CircleBorder(),
+                    color: Colors.white,
+                    child: Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                        border: Border.all(
+                          color: const Color(0xFFE2E8F0),
+                          width: 1.5,
                         ),
-                        BoxShadow(
-                          color: const Color(0xFF185ABD).withValues(alpha: 0.18),
-                          blurRadius: 12,
-                          spreadRadius: 1,
-                        ),
-                      ],
-                    ),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        ClipOval(
-                          child: Image.asset(
-                            'assets/logo.png',
-                            width: 50,
-                            height: 50,
-                            fit: BoxFit.contain,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.15),
+                            blurRadius: 10,
+                            spreadRadius: 1,
+                            offset: const Offset(0, 4),
                           ),
-                        ),
-                        if (pendingCount > 0)
-                          Positioned(
-                            right: 0,
-                            top: 0,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.redAccent,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 1.5,
+                          BoxShadow(
+                            color: const Color(0xFF185ABD).withValues(alpha: 0.18),
+                            blurRadius: 12,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          ClipOval(
+                            child: Image.asset(
+                              'assets/logo.png',
+                              width: 50,
+                              height: 50,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                          if (pendingCount > 0)
+                            Positioned(
+                              right: 0,
+                              top: 0,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
                                 ),
-                              ),
-                              child: Text(
-                                pendingCount > 99 ? '99+' : '$pendingCount',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
+                                decoration: BoxDecoration(
+                                  color: Colors.redAccent,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: Text(
+                                  pendingCount > 99 ? '99+' : '$pendingCount',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
