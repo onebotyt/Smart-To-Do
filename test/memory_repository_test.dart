@@ -24,6 +24,7 @@ void main() {
     });
 
     tearDown(() async {
+      controller.dispose();
       await db.close();
     });
 

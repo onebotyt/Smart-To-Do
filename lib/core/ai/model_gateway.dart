@@ -195,8 +195,9 @@ class ManagedModelGateway implements ModelGateway {
     try {
       bool streamedFromLocalServer = false;
       if (!Platform.environment.containsKey('FLUTTER_TEST') && localApiUrl != null && localApiUrl!.isNotEmpty) {
+        HttpClient? client;
         try {
-          final client = HttpClient()..connectionTimeout = const Duration(milliseconds: 1200);
+          client = HttpClient()..connectionTimeout = const Duration(milliseconds: 1200);
           final request = await client.postUrl(Uri.parse('$localApiUrl/api/generate'));
           request.headers.contentType = ContentType.json;
           request.write(jsonEncode({
@@ -223,6 +224,8 @@ class ManagedModelGateway implements ModelGateway {
           }
         } catch (_) {
           // Local inference server offline or not running; fallback seamlessly
+        } finally {
+          client?.close(force: true);
         }
       }
 

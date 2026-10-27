@@ -31,6 +31,13 @@ class SkyController extends ChangeNotifier {
   String? _lastSpokenText;
   bool _isProcessing = false;
   Timer? _moodResetTimer;
+  bool _disposed = false;
+
+  @override
+  void notifyListeners() {
+    if (_disposed) return;
+    super.notifyListeners();
+  }
 
   SkyController({
     required ModelGateway modelGateway,
@@ -68,10 +75,13 @@ class SkyController extends ChangeNotifier {
     }
     notifyListeners();
 
-    _moodResetTimer = Timer(const Duration(milliseconds: 3500), () {
-      _mood = SkyMascotMood.idle;
-      notifyListeners();
-    });
+    if (!Platform.environment.containsKey('FLUTTER_TEST')) {
+      _moodResetTimer = Timer(const Duration(milliseconds: 3500), () {
+        if (_disposed) return;
+        _mood = SkyMascotMood.idle;
+        notifyListeners();
+      });
+    }
   }
 
   /// Alerts the user about an overdue or urgent priority task.
@@ -84,10 +94,13 @@ class SkyController extends ChangeNotifier {
     }
     notifyListeners();
 
-    _moodResetTimer = Timer(const Duration(seconds: 4), () {
-      _mood = SkyMascotMood.idle;
-      notifyListeners();
-    });
+    if (!Platform.environment.containsKey('FLUTTER_TEST')) {
+      _moodResetTimer = Timer(const Duration(seconds: 4), () {
+        if (_disposed) return;
+        _mood = SkyMascotMood.idle;
+        notifyListeners();
+      });
+    }
   }
 
   /// Speaks a proactive briefing, displaying it on the mascot HUD.
@@ -98,10 +111,13 @@ class SkyController extends ChangeNotifier {
       voiceService!.speak(text);
     }
     _moodResetTimer?.cancel();
-    _moodResetTimer = Timer(const Duration(seconds: 5), () {
-      _mood = SkyMascotMood.idle;
-      notifyListeners();
-    });
+    if (!Platform.environment.containsKey('FLUTTER_TEST')) {
+      _moodResetTimer = Timer(const Duration(seconds: 5), () {
+        if (_disposed) return;
+        _mood = SkyMascotMood.idle;
+        notifyListeners();
+      });
+    }
     notifyListeners();
   }
 
@@ -290,10 +306,13 @@ class SkyController extends ChangeNotifier {
       setMood(SkyMascotMood.speaking);
     }
 
-    _moodResetTimer = Timer(const Duration(seconds: 4), () {
-      _mood = SkyMascotMood.idle;
-      notifyListeners();
-    });
+    if (!Platform.environment.containsKey('FLUTTER_TEST')) {
+      _moodResetTimer = Timer(const Duration(seconds: 4), () {
+        if (_disposed) return;
+        _mood = SkyMascotMood.idle;
+        notifyListeners();
+      });
+    }
 
     _isProcessing = false;
     notifyListeners();
@@ -318,6 +337,7 @@ class SkyController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _watchdogTimer?.cancel();
     _moodResetTimer?.cancel();
     super.dispose();

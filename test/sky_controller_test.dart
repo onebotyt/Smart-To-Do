@@ -21,12 +21,13 @@ void main() {
   });
 
   group('Sky AI Controller & Model Gateway Tests', () {
+    late Database db;
     late MemoryRepository memoryRepo;
     late ManagedModelGateway gateway;
     late SkyController sky;
 
     setUp(() async {
-      final db = await MemoryDatabase.open(path: inMemoryDatabasePath);
+      db = await MemoryDatabase.open(path: inMemoryDatabasePath);
       await db.delete('memories');
       await db.delete('conversations');
 
@@ -46,6 +47,7 @@ void main() {
     tearDown(() async {
       await gateway.unload();
       sky.dispose();
+      await db.close();
     });
 
     test('Initializes with idle mood and inactive state', () {
