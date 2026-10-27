@@ -6,10 +6,16 @@ import 'package:synctask/data/database/memory_database.dart';
 import 'package:synctask/data/models/task.dart';
 import 'package:synctask/data/repositories/memory_repository.dart';
 import 'package:synctask/features/sky/sky_controller.dart';
+import 'package:synctask/features/tasks/task_controller.dart';
+import 'package:synctask/data/repositories/task_repository.dart';
+import 'package:synctask/data/database/app_database.dart';
+import 'package:synctask/features/settings/settings_controller.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:synctask/features/sky/widgets/sky_mascot_widget.dart';
 
 void main() {
   setUpAll(() {
+    TestWidgetsFlutterBinding.ensureInitialized();
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   });
@@ -116,6 +122,80 @@ void main() {
       final urgentBriefing = sky.generateBriefing([task1, task2]);
       expect(urgentBriefing, contains('1 high priority'));
       expect(urgentBriefing, contains('Submit quarterly budget'));
+    });
+    test('speakBriefing displays briefing text and sets mood to speaking', () {
+      sky.speakBriefing('Good morning, sir. Systems operational.');
+      expect(sky.mood, SkyMascotMood.speaking);
+      expect(sky.lastSpokenText, contains('Systems operational'));
+    });
+
+    test('recommendNextAction prioritizes high priority and due items', () {
+      const normalTask = Task(
+        id: 't-1',
+        title: 'Check email',
+        notes: '',
+        priority: 1,
+        completed: false,
+        category: 'work',
+        recurrence: Recurrence.none,
+        createdAt: 0,
+        updatedAt: 0,
+        revision: 1,
+        deviceId: 'dev-1',
+        deleted: false,
+      );
+      const urgentTask = Task(
+        id: 't-2',
+        title: 'Security patch deployment',
+        notes: '',
+        priority: 3,
+        completed: false,
+        category: 'dev',
+        recurrence: Recurrence.none,
+        createdAt: 0,
+        updatedAt: 0,
+        revision: 1,
+        deviceId: 'dev-1',
+        deleted: false,
+      );
+
+      final next = sky.recommendNextAction([normalTask, urgentTask]);
+      expect(next, contains('Security patch deployment'));
+      expect(next, contains('High Priority'));
+    });
+
+    test('Natural language task creation and completion via Sky NLP', () async {
+      final appDb = await AppDatabase.open(path: 'sky_tasks_test.db');
+      await appDb.delete('tasks');
+      await appDb.delete('change_log');
+      final taskRepo = TaskRepository(appDb, 'test-dev-1');
+      SharedPreferences.setMockInitialValues({});
+      final settings = await SettingsController.load();
+      final taskController = TaskController(taskRepo, settings, null, () {});
+      await taskController.refresh();
+
+      sky.taskController = taskController;
+
+      // 1. Natural Language Creation
+      final addResp = await sky.ask('Sky, add task Finish client proposal urgent');
+      expect(addResp, contains('Created task'));
+      expect(addResp, contains('High Priority'));
+
+      await taskController.refresh();
+      expect(taskController.tasks.length, 1);
+      expect(taskController.tasks.first.title, contains('Finish client proposal'));
+      expect(taskController.tasks.first.priority, 3);
+
+      // 2. Natural Language Completion
+      final doneResp = await sky.ask('Sky, complete Finish client proposal');
+      expect(doneResp, contains('completed'));
+      expect(sky.mood, SkyMascotMood.celebrating);
+
+      await taskController.refresh();
+      expect(taskController.tasks.first.completed, isTrue);
+
+      await appDb.close();
+      await databaseFactory.deleteDatabase('sky_tasks_test.db');
     });
   });
 }

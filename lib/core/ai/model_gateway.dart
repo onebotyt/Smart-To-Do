@@ -194,7 +194,7 @@ class ManagedModelGateway implements ModelGateway {
 
     try {
       bool streamedFromLocalServer = false;
-      if (localApiUrl != null && localApiUrl!.isNotEmpty) {
+      if (!Platform.environment.containsKey('FLUTTER_TEST') && localApiUrl != null && localApiUrl!.isNotEmpty) {
         try {
           final client = HttpClient()..connectionTimeout = const Duration(milliseconds: 1200);
           final request = await client.postUrl(Uri.parse('$localApiUrl/api/generate'));

@@ -6,12 +6,17 @@ import '../sync/transport/sync_engine.dart';
 import 'package:uuid/uuid.dart';
 import '../../data/repositories/memory_repository.dart';
 import 'widgets/sky_mascot_widget.dart';
+import '../../platform/voice_service.dart';
+import '../tasks/task_controller.dart';
 
 /// High-level controller orchestrating Sky AI persona, voice/dialogue,
 /// mascot mood expressions, and task status intelligence.
 class SkyController extends ChangeNotifier {
   final ModelGateway _modelGateway;
   final MemoryRepository _memoryRepo;
+  TaskController? taskController;
+  VoiceService? voiceService;
+  bool isVoiceOutputEnabled = true;
 
   SkyMascotMood _mood = SkyMascotMood.idle;
   String? _lastSpokenText;
@@ -21,6 +26,9 @@ class SkyController extends ChangeNotifier {
   SkyController({
     required ModelGateway modelGateway,
     required MemoryRepository memoryRepo,
+    this.taskController,
+    this.voiceService,
+    this.isVoiceOutputEnabled = true,
   })  : _modelGateway = modelGateway,
         _memoryRepo = memoryRepo;
 
@@ -39,6 +47,9 @@ class SkyController extends ChangeNotifier {
     _moodResetTimer?.cancel();
     _mood = SkyMascotMood.celebrating;
     _lastSpokenText = 'Great job completing: "$taskTitle"!';
+    if (isVoiceOutputEnabled && voiceService != null) {
+      voiceService!.speak(_lastSpokenText!);
+    }
     notifyListeners();
 
     _moodResetTimer = Timer(const Duration(milliseconds: 3500), () {
@@ -64,6 +75,9 @@ class SkyController extends ChangeNotifier {
   void speakBriefing(String text) {
     _lastSpokenText = text;
     setMood(SkyMascotMood.speaking);
+    if (isVoiceOutputEnabled && voiceService != null) {
+      voiceService!.speak(text);
+    }
     _moodResetTimer?.cancel();
     _moodResetTimer = Timer(const Duration(seconds: 5), () {
       _mood = SkyMascotMood.idle;
@@ -112,6 +126,12 @@ class SkyController extends ChangeNotifier {
 
     String? response;
 
+    // Direct Natural Language Task Action Check
+    final taskActionResult = await _handleTaskAction(query);
+    if (taskActionResult != null) {
+      response = taskActionResult;
+    }
+
     // 2. Automated P2P Offloading to PC GPU if available
     if (syncEngine != null) {
       try {
@@ -154,7 +174,12 @@ class SkyController extends ChangeNotifier {
     );
 
     _lastSpokenText = response;
-    setMood(SkyMascotMood.speaking);
+    if (isVoiceOutputEnabled && voiceService != null) {
+      voiceService!.speak(response);
+    }
+    if (_mood != SkyMascotMood.celebrating) {
+      setMood(SkyMascotMood.speaking);
+    }
 
     _moodResetTimer = Timer(const Duration(seconds: 4), () {
       _mood = SkyMascotMood.idle;
@@ -186,5 +211,79 @@ class SkyController extends ChangeNotifier {
   void dispose() {
     _moodResetTimer?.cancel();
     super.dispose();
+  }
+  /// Automatically interprets natural language task operations.
+  Future<String?> _handleTaskAction(String query) async {
+    final lower = query.trim().toLowerCase();
+
+    // 1. Briefing request
+    if (RegExp(r'\b(briefing|daily brief|status report|what do i have|schedule)\b').hasMatch(lower)) {
+      final tasks = taskController?.tasks ?? [];
+      return generateBriefing(tasks);
+    }
+
+    // 2. Next recommended task
+    if (RegExp(r'\b(next task|what should i do|what next|recommend task)\b').hasMatch(lower)) {
+      final tasks = taskController?.tasks ?? [];
+      return recommendNextAction(tasks);
+    }
+
+    // 3. Create / Add Task
+    final createMatch = RegExp(r'^(?:sky,?\s*)?(?:add|create|new|remind me to)\s+(?:task\s+)?(.+)', caseSensitive: false).firstMatch(query.trim());
+    if (createMatch != null && taskController != null) {
+      final rawTitle = createMatch.group(1)!.trim();
+      int priority = 1;
+      String cleanTitle = rawTitle;
+      if (rawTitle.toLowerCase().contains('urgent') || rawTitle.toLowerCase().contains('high priority')) {
+        priority = 3;
+        cleanTitle = rawTitle.replaceAll(RegExp(r'(urgent|high priority)', caseSensitive: false), '').trim();
+      } else if (rawTitle.toLowerCase().contains('low priority')) {
+        priority = 0;
+        cleanTitle = rawTitle.replaceAll(RegExp(r'low priority', caseSensitive: false), '').trim();
+      }
+      if (cleanTitle.isNotEmpty) {
+        await taskController!.create(title: cleanTitle, priority: priority);
+        return "Created task '$cleanTitle'${priority >= 3 ? ' with High Priority' : ''}, sir. Synced to your devices.";
+      }
+    }
+
+    // 4. Complete / Mark Done
+    final doneMatch = RegExp(r'^(?:sky,?\s*)?(?:complete|finish|mark|done)\s+(?:task\s+)?(.+?)(?:\s+as\s+done|\s+completed)?$', caseSensitive: false).firstMatch(query.trim());
+    if (doneMatch != null && taskController != null) {
+      final target = doneMatch.group(1)!.trim().toLowerCase();
+      final tasks = taskController!.tasks.where((t) => !t.completed).toList();
+      Task? match;
+      for (final t in tasks) {
+        if (t.title.toLowerCase().contains(target) || target.contains(t.title.toLowerCase())) {
+          match = t;
+          break;
+        }
+      }
+      if (match != null) {
+        await taskController!.toggle(match);
+        celebrateTaskCompletion(match.title);
+        return "Marked '${match.title}' as completed. Excellent work, sir.";
+      }
+    }
+
+    // 5. Delete / Remove
+    final delMatch = RegExp(r'^(?:sky,?\s*)?(?:delete|remove)\s+(?:task\s+)?(.+)', caseSensitive: false).firstMatch(query.trim());
+    if (delMatch != null && taskController != null) {
+      final target = delMatch.group(1)!.trim().toLowerCase();
+      final tasks = taskController!.tasks;
+      Task? match;
+      for (final t in tasks) {
+        if (t.title.toLowerCase().contains(target) || target.contains(t.title.toLowerCase())) {
+          match = t;
+          break;
+        }
+      }
+      if (match != null) {
+        await taskController!.remove(match);
+        return "Removed task '${match.title}', sir.";
+      }
+    }
+
+    return null;
   }
 }

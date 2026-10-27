@@ -21,6 +21,7 @@ import 'features/memory/memory_controller.dart';
 import 'features/sky/sky_controller.dart';
 import 'features/studio/studio_app.dart';
 import 'platform/native_media_service.dart';
+import 'platform/voice_service.dart';
 import 'platform/window_service.dart';
 
 Future<void> main([List<String> args = const []]) async {
@@ -73,6 +74,9 @@ Future<void> main([List<String> args = const []]) async {
     null,
     () => syncController.triggerAutoSync(),
   )..refresh();
+
+  skyController.taskController = taskController;
+  skyController.voiceService = NativeVoiceService.instance;
 
   taskController.onTaskCompletionChanged = (task, completed) {
     if (completed) {
