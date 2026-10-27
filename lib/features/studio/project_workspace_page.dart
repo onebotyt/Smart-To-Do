@@ -29,6 +29,7 @@ class _ProjectWorkspacePageState extends State<ProjectWorkspacePage> with Single
   bool _isIndexing = false;
   String _indexStatus = '';
   double _indexProgress = 0.0;
+  String _searchQuery = '';
 
   final TextEditingController _taskController = TextEditingController();
   final ScrollController _logScrollController = ScrollController();
@@ -193,6 +194,17 @@ class _ProjectWorkspacePageState extends State<ProjectWorkspacePage> with Single
 
   Widget _buildGraphTab(BuildContext context) {
     final theme = Theme.of(context);
+    final visibleFiles = _searchQuery.isEmpty
+        ? _summary.topFiles
+        : _summary.topFiles.where((f) => (f['path'] as String? ?? '').toLowerCase().contains(_searchQuery)).toList();
+    final visibleSymbols = _searchQuery.isEmpty
+        ? _summary.sampleSymbols
+        : _summary.sampleSymbols.where((s) {
+            final name = (s['symbol_name'] as String? ?? '').toLowerCase();
+            final path = (s['file_path'] as String? ?? '').toLowerCase();
+            return name.contains(_searchQuery) || path.contains(_searchQuery);
+          }).toList();
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -252,11 +264,28 @@ class _ProjectWorkspacePageState extends State<ProjectWorkspacePage> with Single
         ),
         const SizedBox(height: 16),
 
+        // Symbol & File Search Bar
+        TextField(
+          onChanged: (val) => setState(() => _searchQuery = val.trim().toLowerCase()),
+          decoration: InputDecoration(
+            hintText: 'Search files and code symbols (e.g. Controller, service, main.dart)...',
+            prefixIcon: const Icon(Icons.search, size: 20),
+            suffixIcon: _searchQuery.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear, size: 16),
+                    onPressed: () => setState(() => _searchQuery = ''),
+                  )
+                : null,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            isDense: true,
+          ),
+        ),
+        const SizedBox(height: 16),
         // Top Files
-        if (_summary.topFiles.isNotEmpty) ...[
+        if (visibleFiles.isNotEmpty) ...[
           const Text('Largest Files', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          ..._summary.topFiles.map((f) => Card(
+          ...visibleFiles.map((f) => Card(
                 elevation: 0,
                 margin: const EdgeInsets.only(bottom: 6),
                 child: ListTile(
@@ -269,7 +298,7 @@ class _ProjectWorkspacePageState extends State<ProjectWorkspacePage> with Single
         ],
 
         // Sample Symbols
-        if (_summary.sampleSymbols.isNotEmpty) ...[
+        if (visibleSymbols.isNotEmpty) ...[
           const SizedBox(height: 16),
           const Text('Sample Indexed Symbols', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
@@ -468,6 +497,8 @@ class _ProjectWorkspacePageState extends State<ProjectWorkspacePage> with Single
               'Status: $status • Started: ${startedAt.toLocal().toString().substring(0, 16)}',
               style: const TextStyle(fontSize: 12),
             ),
+            trailing: const Icon(Icons.chevron_right, size: 18),
+            onTap: () => _showSessionDetails(context, sess),
           ),
         );
       },
@@ -489,6 +520,66 @@ class _ProjectWorkspacePageState extends State<ProjectWorkspacePage> with Single
           const SizedBox(height: 8),
           Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+        ],
+      ),
+    );
+  }
+  Future<void> _showSessionDetails(BuildContext context, Map<String, dynamic> sess) async {
+    final checkpoints = await ProjectsDatabase.listCheckpoints(widget.projectsDb, sess['id'] as String);
+    if (!context.mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.history_edu_rounded, color: Color(0xFF6366F1), size: 22),
+            const SizedBox(width: 8),
+            Expanded(child: Text(sess['title'] ?? 'Session Details', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+          ],
+        ),
+        content: SizedBox(
+          width: 500,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Status: ${sess['status']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              const SizedBox(height: 12),
+              const Text('Recovery Checkpoints:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              const SizedBox(height: 6),
+              if (checkpoints.isEmpty)
+                const Text('No checkpoints saved for this session.', style: TextStyle(color: Colors.grey, fontSize: 12))
+              else
+                ...checkpoints.map((cp) => Container(
+                      margin: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle_outline, size: 16, color: Color(0xFF10B981)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Step ${cp['step_index']}: ${cp['summary']}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                                if (cp['git_commit'] != null)
+                                  Text('Commit: ${cp['git_commit']}', style: const TextStyle(fontSize: 10, color: Colors.grey, fontFamily: 'monospace')),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    )),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
         ],
       ),
     );

@@ -6,6 +6,8 @@ import '../../core/lifecycle/resource_manager.dart';
 import '../../core/lifecycle/resource_state.dart';
 import '../../data/database/projects_database.dart';
 import 'project_workspace_page.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:path/path.dart' as p;
 
 class StudioDashboardPage extends StatefulWidget {
   final Database projectsDb;
@@ -62,9 +64,24 @@ class _StudioDashboardPageState extends State<StudioDashboardPage> {
             const SizedBox(height: 12),
             TextField(
               controller: pathCtrl,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Root Directory',
-                prefixIcon: Icon(Icons.folder_open),
+                prefixIcon: const Icon(Icons.folder_open),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.drive_file_move_outlined),
+                  tooltip: 'Browse Folder',
+                  onPressed: () async {
+                    try {
+                      final selected = await FilePicker.getDirectoryPath();
+                      if (selected != null) {
+                        pathCtrl.text = selected;
+                        if (nameCtrl.text.trim().isEmpty) {
+                          nameCtrl.text = p.basename(selected);
+                        }
+                      }
+                    } catch (_) {}
+                  },
+                ),
               ),
             ),
           ],
@@ -389,19 +406,62 @@ class _StudioDashboardPageState extends State<StudioDashboardPage> {
         ),
         title: Text(proj['name'] ?? 'Unnamed Project', style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Text(proj['root_path'] ?? '', style: const TextStyle(fontSize: 12)),
-        trailing: FilledButton.tonal(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (ctx) => ProjectWorkspacePage(
-                  project: proj,
-                  projectsDb: widget.projectsDb,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            FilledButton.tonal(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (ctx) => ProjectWorkspacePage(
+                      project: proj,
+                      projectsDb: widget.projectsDb,
+                    ),
+                  ),
+                );
+              },
+              child: const Text('Open'),
+            ),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, size: 18),
+              onSelected: (val) async {
+                if (val == 'delete') {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Remove Project from Studio?'),
+                      content: Text('Remove "${proj['name']}" from AI Engineering Studio? Your code files on disk will NOT be deleted.'),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                        FilledButton(
+                          style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text('Remove'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true) {
+                    await ProjectsDatabase.deleteProject(widget.projectsDb, proj['id'] as String);
+                    _loadProjects();
+                  }
+                }
+              },
+              itemBuilder: (ctx) => const [
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                      SizedBox(width: 8),
+                      Text('Remove Project', style: TextStyle(color: Colors.redAccent)),
+                    ],
+                  ),
                 ),
-              ),
-            );
-          },
-          child: const Text('Open'),
+              ],
+            ),
+          ],
         ),
       ),
     );

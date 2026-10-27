@@ -154,6 +154,11 @@ class ProjectsDatabase {
     return rows.isNotEmpty ? rows.first : null;
   }
 
+  /// Deletes a project and its associated sessions/indexes.
+  static Future<void> deleteProject(Database db, String projectId) async {
+    await db.delete('projects', where: 'id = ?', whereArgs: [projectId]);
+  }
+
   /// Starts a new engineering session.
   static Future<String> startSession(
     Database db, {
