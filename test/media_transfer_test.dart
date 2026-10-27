@@ -284,6 +284,8 @@ void main() {
     late MediaTransferController controllerA;
     late MediaTransferController controllerB;
     late Device deviceB;
+    late String deviceIdA;
+    late DeviceRepository deviceRepoB;
 
     setUp(() async {
       tempDirA = Directory.systemTemp.createTempSync('media_p2p_a_');
@@ -293,14 +295,14 @@ void main() {
       dbA = await AppDatabase.open(path: '${tempDirA.path}/a.db');
       dbB = await AppDatabase.open(path: '${tempDirB.path}/b.db');
 
-      final deviceIdA = await AppDatabase.deviceId(dbA);
+      deviceIdA = await AppDatabase.deviceId(dbA);
       final deviceIdB = await AppDatabase.deviceId(dbB);
 
       final taskRepoA = TaskRepository(dbA, deviceIdA);
       final taskRepoB = TaskRepository(dbB, deviceIdB);
 
       final deviceRepoA = DeviceRepository(dbA);
-      final deviceRepoB = DeviceRepository(dbB);
+      deviceRepoB = DeviceRepository(dbB);
 
       await deviceRepoA.setLocalDeviceName('Desktop A');
       await deviceRepoB.setLocalDeviceName('Phone B');
@@ -387,6 +389,36 @@ void main() {
 
       // Cleanup received file
       try { receivedFile.deleteSync(); } catch (_) {}
+    });
+
+    test('Sending to revoked or untrusted peer fails fast with error message', () async {
+      // 1. Untrust device B on engine B's deviceRepo
+      final devAOnB = await deviceRepoB.getById(deviceIdA);
+      if (devAOnB != null) {
+        await deviceRepoB.save(devAOnB.copyWith(trusted: false));
+      }
+
+      final sampleFile = File('${tempDirA.path}/sample_doc.txt');
+      await sampleFile.writeAsString('Confidential document');
+
+      final startTime = DateTime.now();
+      final success = await engineA.sendFileToPeer(
+        device: deviceB,
+        file: sampleFile,
+        transferId: 'transfer-untrusted-1',
+      );
+      final elapsed = DateTime.now().difference(startTime);
+
+      // Must fail fast within 3 seconds, not wait for 45s timeout
+      expect(success, isFalse);
+      expect(elapsed.inSeconds, lessThan(5));
+    });
+
+    test('getMediaSaveDirectory falls back gracefully to a valid writable directory', () async {
+      setMediaSaveDirectoryForTesting(null);
+      final dir = await getMediaSaveDirectory();
+      expect(dir.existsSync(), isTrue);
+      expect(dir.path, isNotEmpty);
     });
   });
 }

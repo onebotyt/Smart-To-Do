@@ -38,9 +38,6 @@ class SettingsController extends ChangeNotifier {
   static Future<SettingsController> load() async {
     final prefs = await SharedPreferences.getInstance();
     final controller = SettingsController._(prefs);
-    if (controller.isAlwaysOnTop) {
-      PlatformWindowService.setAlwaysOnTop(true);
-    }
     if (Platform.isAndroid && controller.isFloatingBubbleEnabled) {
       PlatformFloatingPanelService().show();
     }

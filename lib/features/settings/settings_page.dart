@@ -218,12 +218,12 @@ class SettingsPage extends StatelessWidget {
                     ),
                     const Divider(height: 1),
 
-                    // Always On Top Toggle (Stay above other apps - Desktop only)
+                    // Always On Top Toggle (Floating panel and bubble only - Desktop)
                     if (Platform.isWindows) ...[
                       SwitchListTile(
                         secondary: const Icon(Icons.push_pin_outlined, color: Colors.blueAccent),
-                        title: const Text('Always On Top (Stay Above All Apps)'),
-                        subtitle: const Text('Keep window floating over browser, games, and other apps'),
+                        title: const Text('Keep Floating Panel Always On Top'),
+                        subtitle: const Text('Floating panel and bubble stay above other apps (main app stays normal)'),
                         value: s.isAlwaysOnTop,
                         onChanged: s.setAlwaysOnTop,
                       ),

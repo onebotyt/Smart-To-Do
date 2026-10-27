@@ -83,9 +83,13 @@ void FlutterWindow::SetWindowMode(const std::string& mode) {
     }
 
     SetWindowLongPtr(hwnd, GWL_STYLE, WS_POPUP | WS_VISIBLE);
-    SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_TOPMOST | WS_EX_TOOLWINDOW);
+    LONG_PTR panelEx = WS_EX_TOOLWINDOW;
+    if (is_always_on_top_) {
+      panelEx |= WS_EX_TOPMOST;
+    }
+    SetWindowLongPtr(hwnd, GWL_EXSTYLE, panelEx);
 
-    SetWindowPos(hwnd, HWND_TOPMOST, px, py, panelWidth, panelHeight,
+    SetWindowPos(hwnd, is_always_on_top_ ? HWND_TOPMOST : HWND_NOTOPMOST, px, py, panelWidth, panelHeight,
                  SWP_FRAMECHANGED | SWP_SHOWWINDOW);
 
     // Rounded rectangle region mask (radius 24)
@@ -98,8 +102,12 @@ void FlutterWindow::SetWindowMode(const std::string& mode) {
     // "normal" mode
     SetWindowRgn(hwnd, nullptr, TRUE);
 
+    LONG_PTR normalEx = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+    normalEx &= ~WS_EX_TOPMOST;
+    normalEx &= ~WS_EX_TOOLWINDOW;
+    normalEx |= WS_EX_APPWINDOW;
+    SetWindowLongPtr(hwnd, GWL_EXSTYLE, normalEx);
     SetWindowLongPtr(hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW | WS_VISIBLE);
-    SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_APPWINDOW);
 
     int nw = normal_rect_.right - normal_rect_.left;
     int nh = normal_rect_.bottom - normal_rect_.top;
@@ -173,8 +181,25 @@ bool FlutterWindow::OnCreate() {
         }
       }
       is_always_on_top_ = always_on_top;
-      SetWindowPos(hwnd, always_on_top ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0,
-                   SWP_NOMOVE | SWP_NOSIZE);
+      // Topmost only applies to floating panel and bubble, never to normal app window
+      if (current_mode_ != "normal") {
+        LONG_PTR exStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+        if (always_on_top) {
+          exStyle |= WS_EX_TOPMOST;
+        } else {
+          exStyle &= ~WS_EX_TOPMOST;
+        }
+        SetWindowLongPtr(hwnd, GWL_EXSTYLE, exStyle);
+        SetWindowPos(hwnd, always_on_top ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0,
+                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+      } else {
+        // Enforce HWND_NOTOPMOST for normal mode
+        LONG_PTR exStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+        exStyle &= ~WS_EX_TOPMOST;
+        SetWindowLongPtr(hwnd, GWL_EXSTYLE, exStyle);
+        SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0,
+                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+      }
       result->Success(flutter::EncodableValue(true));
     } else if (call.method_name() == "isAlwaysOnTop") {
       LONG_PTR exStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);

@@ -7,6 +7,7 @@ import 'package:path/path.dart' as path;
 import 'package:synctask/data/models/device.dart';
 import 'package:synctask/features/media_transfer/models/media_transfer.dart';
 import 'package:synctask/features/sync/transport/sync_engine.dart';
+import 'package:synctask/platform/window_service.dart';
 
 class MediaTransferController extends ChangeNotifier {
   final SyncEngine _syncEngine;
@@ -102,6 +103,11 @@ class MediaTransferController extends ChangeNotifier {
     }
 
     try {
+      if (Platform.isWindows) {
+        // Enforce non-topmost state so file picker dialog appears in foreground
+        await PlatformWindowService.setAlwaysOnTop(false);
+      }
+
       final files = await FilePicker.pickFiles(
         type: FileType.any,
       );
