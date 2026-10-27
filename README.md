@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/onebotyt/Smart-To-Do/releases/latest"><img src="https://img.shields.io/github/v/release/onebotyt/Smart-To-Do?label=Latest%20Release&color=indigo" alt="Latest Release" /></a>
-  <a href="https://github.com/onebotyt/Smart-To-Do/releases/tag/v0.1.41"><img src="https://img.shields.io/badge/Current%20Version-v0.1.41-blue" alt="Current Version v0.1.41" /></a>
+  <a href="https://github.com/onebotyt/Smart-To-Do/releases/tag/v0.1.46"><img src="https://img.shields.io/badge/Current%20Version-v0.1.46-blue" alt="Current Version v0.1.46" /></a>
   <a href="https://github.com/onebotyt/Smart-To-Do/actions"><img src="https://img.shields.io/github/actions/workflow/status/onebotyt/Smart-To-Do/build.yml?branch=main&label=Build%20Status" alt="Build Status" /></a>
   <img src="https://img.shields.io/badge/Tests-39%20Passing-brightgreen" alt="39 Passing Tests" />
   <img src="https://img.shields.io/badge/Platforms-Android%20%7C%20Windows-blue" alt="Supported Platforms" />
@@ -20,20 +20,20 @@
 
 ---
 
-## 🚀 Direct One-Click Downloads (Latest Version: v0.1.41)
+## 🚀 Direct One-Click Downloads (Latest Version: v0.1.46)
 
 Always get the newest release directly with a single click below:
 
 | Platform | Format / Architecture | Direct Download Link | Alternative Link | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| 💻 **Windows (Setup Installer)** | Official Setup `.exe` | [📥 **Download Windows Setup (v0.1.41)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.41/SyncTask-Setup.exe) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Setup.exe) | Standard Windows Setup Wizard with Desktop & Start Menu Icons |
-| 💻 **Windows (Portable ZIP)** | Portable Bundle + Script | [📥 **Download Windows ZIP (v0.1.41)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.41/SyncTask-Windows.zip) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Windows.zip) | Portable archive with `Install-SyncTask.cmd` script |
-| 📱 **Android (Recommended)** | `arm64-v8a` APK | [📥 **Download Android APK (v0.1.41)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.41/SyncTask-Android-arm64.apk) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Android-arm64.apk) | Optimized for modern phones (~28 MB) |
-| 📱 **Android (Universal)** | Multi-ABI APK | [📥 **Download Universal APK (v0.1.41)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.41/SyncTask-Android.apk) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Android.apk) | Compatible with all Android devices |
+| 💻 **Windows (Setup Installer)** | Official Setup `.exe` | [📥 **Download Windows Setup (v0.1.46)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.46/SyncTask-Setup.exe) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Setup.exe) | Standard Windows Setup Wizard with Desktop & Start Menu Icons |
+| 💻 **Windows (Portable ZIP)** | Portable Bundle + Script | [📥 **Download Windows ZIP (v0.1.46)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.46/SyncTask-Windows.zip) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Windows.zip) | Portable archive with `Install-SyncTask.cmd` script |
+| 📱 **Android (Recommended)** | `arm64-v8a` APK | [📥 **Download Android APK (v0.1.46)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.46/SyncTask-Android-arm64.apk) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Android-arm64.apk) | Optimized for modern phones (~28 MB) |
+| 📱 **Android (Universal)** | Multi-ABI APK | [📥 **Download Universal APK (v0.1.46)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.46/SyncTask-Android.apk) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Android.apk) | Compatible with all Android devices |
 
 > 📦 *View full changelogs and historical archives on the [GitHub Releases Page](https://github.com/onebotyt/Smart-To-Do/releases).*
 > 
-> ℹ️ *Note for Android: Because v0.1.41 introduces our permanent cryptographic signing certificate, uninstall any older test version once before installing this build. All future updates will install seamlessly over this release!*
+> ℹ️ *Note for Android: Because v0.1.46 introduces our permanent cryptographic signing certificate, uninstall any older test version once before installing this build. All future updates will install seamlessly over this release!*
 
 ---
 
