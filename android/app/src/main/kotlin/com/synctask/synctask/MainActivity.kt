@@ -364,6 +364,17 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    
+    override fun onResume() {
+        super.onResume()
+        FloatingBubbleService.setAppForeground(true)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        FloatingBubbleService.setAppForeground(false)
+    }
+
     override fun onDestroy() {
         try {
             tts?.stop()

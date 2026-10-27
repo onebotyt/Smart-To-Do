@@ -167,19 +167,10 @@ class _DesktopFloatingBubbleState extends State<DesktopFloatingBubble>
                               fit: BoxFit.cover,
                             ),
                           )
-                        else if (sky != null)
+                        else
                           SkyMascotWidget(
                             size: 64,
-                            mood: sky.mood,
-                          )
-                        else
-                          ClipOval(
-                            child: Image.asset(
-                              'assets/logo.png',
-                              width: 66,
-                              height: 66,
-                              fit: BoxFit.contain,
-                            ),
+                            mood: sky?.mood ?? SkyMascotMood.idle,
                           ),
 
                         // Pending tasks badge

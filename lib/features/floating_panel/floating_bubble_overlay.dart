@@ -382,20 +382,10 @@ class _FloatingBubbleOverlayState extends State<FloatingBubbleOverlay>
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          if (sky != null)
-                            SkyMascotWidget(
-                              size: 50,
-                              mood: sky.mood,
-                            )
-                          else
-                            ClipOval(
-                              child: Image.asset(
-                                'assets/logo.png',
-                                width: 50,
-                                height: 50,
-                                fit: BoxFit.contain,
-                              ),
-                            ),
+                          SkyMascotWidget(
+                            size: 50,
+                            mood: sky?.mood ?? SkyMascotMood.idle,
+                          ),
                           if (pendingCount > 0)
                             Positioned(
                               right: 0,

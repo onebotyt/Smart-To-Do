@@ -40,7 +40,10 @@ void main() {
       await taskController.refresh();
     });
 
-    addTearDown(() async => await db.close());
+    addTearDown(() async {
+      syncController.dispose();
+      await db.close();
+    });
 
     await tester.pumpWidget(
       MultiProvider(

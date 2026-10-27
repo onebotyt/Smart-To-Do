@@ -60,6 +60,17 @@ class FloatingBubbleService : Service() {
                 instance?.refreshTaskListCallback?.invoke()
             }
         }
+
+        fun setAppForeground(isForeground: Boolean) {
+            instance?.mainHandler?.post {
+                if (isForeground) {
+                    instance?.bubbleContainer?.visibility = View.GONE
+                    instance?.panelContainer?.visibility = View.GONE
+                } else {
+                    instance?.bubbleContainer?.visibility = View.VISIBLE
+                }
+            }
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -109,8 +120,8 @@ class FloatingBubbleService : Service() {
         bubbleContainer = FrameLayout(this).apply {
             val bgDrawable = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(Color.WHITE)
-                setStroke((1.5 * density).toInt(), Color.parseColor("#E2E8F0"))
+                setColor(Color.parseColor("#0B132B"))
+                setStroke((1.5 * density).toInt(), Color.parseColor("#38BDF8"))
             }
             background = bgDrawable
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -118,7 +129,7 @@ class FloatingBubbleService : Service() {
             }
 
             val iconView = ImageView(context).apply {
-                setImageResource(R.mipmap.ic_launcher)
+                setImageResource(R.drawable.ic_sky_mascot)
                 scaleType = ImageView.ScaleType.FIT_CENTER
                 val pad = (4 * density).toInt()
                 setPadding(pad, pad, pad, pad)

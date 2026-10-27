@@ -1,0 +1,39 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="56dp"
+    android:height="56dp"
+    android:viewportWidth="56"
+    android:viewportHeight="56">
+    <!-- Dark High-Tech Base Circle -->
+    <path
+        android:fillColor="#0B132B"
+        android:pathData="M28,28m-26,0a26,26 0,1 1,52 0a26,26 0,1 1,-52 0" />
+
+    <!-- Outer Cyan Energy Ring -->
+    <path
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="2.5"
+        android:fillColor="#00000000"
+        android:pathData="M28,28m-22,0a22,22 0,1 1,44 0a22,22 0,1 1,-44 0" />
+
+    <!-- Inner Core Ring -->
+    <path
+        android:strokeColor="#60A5FA"
+        android:strokeWidth="1.5"
+        android:fillColor="#1E293B"
+        android:pathData="M28,28m-14,0a14,14 0,1 1,28 0a14,14 0,1 1,-28 0" />
+
+    <!-- Left Cyan Digital Eye -->
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M23,28m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0" />
+
+    <!-- Right Cyan Digital Eye -->
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M33,28m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0" />
+
+    <!-- Digital Pulse Dot (Arc Reactor Core) -->
+    <path
+        android:fillColor="#A5F3FC"
+        android:pathData="M28,23m-1.5,0a1.5,1.5 0,1 1,3 0a1.5,1.5 0,1 1,-3 0" />
+</vector>

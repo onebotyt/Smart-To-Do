@@ -15,6 +15,7 @@ import '../settings/settings_page.dart';
 import '../sync/devices_page.dart';
 import '../sync/sync_controller.dart';
 import '../update/update_dialog.dart';
+import '../sky/widgets/sky_mascot_widget.dart';
 import 'task_controller.dart';
 import 'task_edit_page.dart';
 
@@ -136,9 +137,7 @@ class _TasksPageState extends State<TasksPage> with WidgetsBindingObserver {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ClipOval(
-              child: Image.asset('assets/logo.png', width: 26, height: 26),
-            ),
+            const SkyMascotWidget(size: 26),
             const SizedBox(width: 8),
             const Text(
               'SyncTask',

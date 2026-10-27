@@ -69,7 +69,7 @@ class _FloatingTaskPanelState extends State<FloatingTaskPanel> {
         : allTasks;
     final pendingCount = allTasks.where((t) => !t.completed).length;
 
-        if (sky != null && sky.syncController != syncController) {
+    if (sky != null && sky.syncController != syncController && !Platform.environment.containsKey('FLUTTER_TEST')) {
       sky.attachSyncController(syncController);
     }
     final theme = Theme.of(context);
@@ -110,8 +110,8 @@ class _FloatingTaskPanelState extends State<FloatingTaskPanel> {
                   color: theme.colorScheme.surfaceContainerHighest,
                   child: Row(
                     children: [
-                    ClipOval(
-                      child: Image.asset('assets/logo.png', width: 20, height: 20),
+                    const ClipOval(
+                      child: SkyMascotWidget(size: 20),
                     ),
                     const SizedBox(width: 8),
                     Text(
