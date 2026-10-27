@@ -91,8 +91,8 @@ class FloatingBubbleService : Service() {
         bubbleContainer = FrameLayout(this).apply {
             val bgDrawable = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(Color.parseColor("#181D28"))
-                setStroke((2.2 * density).toInt(), Color.parseColor("#3880FF"))
+                setColor(Color.WHITE)
+                setStroke((1.5 * density).toInt(), Color.parseColor("#E2E8F0"))
             }
             background = bgDrawable
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -102,7 +102,7 @@ class FloatingBubbleService : Service() {
             val iconView = ImageView(context).apply {
                 setImageResource(R.mipmap.ic_launcher)
                 scaleType = ImageView.ScaleType.FIT_CENTER
-                val pad = (6 * density).toInt()
+                val pad = (4 * density).toInt()
                 setPadding(pad, pad, pad, pad)
             }
             addView(

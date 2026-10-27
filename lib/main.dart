@@ -50,9 +50,6 @@ Future<void> main([List<String> args = const []]) async {
     taskController.refresh();
   };
 
-  if (!isBubbleArg && Platform.isWindows && settings.isStartInBubbleMode) {
-    PlatformWindowService.setWindowMode(AppWindowMode.bubble);
-  }
 
   runApp(
     MultiProvider(

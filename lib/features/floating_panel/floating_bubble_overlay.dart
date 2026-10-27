@@ -272,30 +272,40 @@ class _FloatingBubbleOverlayState extends State<FloatingBubbleOverlay>
                 child: Material(
                   elevation: 8,
                   shape: const CircleBorder(),
-                  color: theme.colorScheme.primary,
+                  color: Colors.white,
                   child: Container(
                     width: 56,
                     height: 56,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
+                      color: Colors.white,
+                      border: Border.all(
+                        color: const Color(0xFFE2E8F0),
+                        width: 1.5,
+                      ),
                       boxShadow: [
                         BoxShadow(
-                          color: theme.colorScheme.primary.withValues(alpha: 0.4),
+                          color: Colors.black.withValues(alpha: 0.15),
                           blurRadius: 10,
-                          spreadRadius: 2,
+                          spreadRadius: 1,
                           offset: const Offset(0, 4),
+                        ),
+                        BoxShadow(
+                          color: const Color(0xFF185ABD).withValues(alpha: 0.18),
+                          blurRadius: 12,
+                          spreadRadius: 1,
                         ),
                       ],
                     ),
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(28),
+                        ClipOval(
                           child: Image.asset(
                             'assets/logo.png',
-                            width: 32,
-                            height: 32,
+                            width: 50,
+                            height: 50,
+                            fit: BoxFit.contain,
                           ),
                         ),
                         if (pendingCount > 0)

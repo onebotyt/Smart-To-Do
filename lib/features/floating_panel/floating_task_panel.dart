@@ -103,8 +103,7 @@ class _FloatingTaskPanelState extends State<FloatingTaskPanel> {
                   color: theme.colorScheme.surfaceContainerHighest,
                   child: Row(
                     children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
+                    ClipOval(
                       child: Image.asset('assets/logo.png', width: 20, height: 20),
                     ),
                     const SizedBox(width: 8),

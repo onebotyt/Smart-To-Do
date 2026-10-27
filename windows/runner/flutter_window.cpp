@@ -344,6 +344,16 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  static const UINT WM_SYNCTASK_RESTORE =
+      ::RegisterWindowMessageW(L"SyncTask_Restore_Window_Normal");
+  if (message == WM_SYNCTASK_RESTORE) {
+    SetWindowMode("normal");
+    ShowWindow(hwnd, SW_RESTORE);
+    SetForegroundWindow(hwnd);
+    BringWindowToTop(hwnd);
+    return 0;
+  }
+
   if (flutter_controller_) {
     std::optional<LRESULT> result =
         flutter_controller_->HandleTopLevelWindowProc(hwnd, message, wparam,

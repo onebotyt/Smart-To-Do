@@ -519,8 +519,7 @@ class _UpdateTileState extends State<_UpdateTile> {
           color: Theme.of(context).colorScheme.primaryContainer,
         ),
         alignment: Alignment.center,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
+        child: ClipOval(
           child: Image.asset('assets/logo.png', width: 28, height: 28),
         ),
       ),

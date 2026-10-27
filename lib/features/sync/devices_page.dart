@@ -191,8 +191,11 @@ class _DevicesPageState extends State<DevicesPage> {
             ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 840),
+          child: ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         children: [
           // 1. Local Device Info Card
           _buildLocalDeviceCard(context, sync),
@@ -281,22 +284,53 @@ class _DevicesPageState extends State<DevicesPage> {
           if (sync.devices.isEmpty)
             Card(
               elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(
+                  color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
+                ),
+              ),
               color: Theme.of(context).colorScheme.surfaceContainerLow,
-              child: const Padding(
-                padding: EdgeInsets.all(24),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 26),
                 child: Column(
                   children: [
-                    Icon(Icons.devices, size: 48, color: Colors.grey),
-                    SizedBox(height: 12),
-                    Text(
-                      'No Paired Devices',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.devices,
+                        size: 26,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
-                    SizedBox(height: 6),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'No Paired Devices',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                    const SizedBox(height: 6),
                     Text(
-                      'Connect another phone or PC via Wi-Fi, Mobile Hotspot, or Bluetooth to enable direct peer-to-peer sync.',
+                      'Connect another phone or PC via Wi-Fi, Mobile Hotspot, or Bluetooth to enable instant direct peer-to-peer sync.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      icon: const Icon(Icons.add_link, size: 18),
+                      label: const Text('Pair a Device Now'),
+                      onPressed: () => _showConnectionHubDialog(
+                        context,
+                        sync,
+                        initialMethod: ConnectionMethodType.wifi,
+                      ),
                     ),
                   ],
                 ),
@@ -312,7 +346,9 @@ class _DevicesPageState extends State<DevicesPage> {
           _buildConnectionMethodsSection(context, sync),
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 
   Widget _buildLocalDeviceCard(BuildContext context, SyncController sync) {
@@ -421,21 +457,23 @@ class _DevicesPageState extends State<DevicesPage> {
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        GridView.count(
-          crossAxisCount: 2,
+        const SizedBox(height: 10),
+        GridView(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 8,
-          crossAxisSpacing: 8,
-          childAspectRatio: 2.2,
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 420,
+            mainAxisExtent: 74,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+          ),
           children: [
             _buildMethodCard(
               context: context,
               icon: Icons.qr_code_scanner,
               iconColor: Colors.deepPurple,
               title: 'Scan QR Code',
-              subtitle: 'Multi-network auto-pair',
+              subtitle: 'Multi-network instant auto-pair',
               onTap: () {
                 if (Platform.isAndroid || Platform.isIOS) {
                   _openQrScanner(context, sync);
@@ -500,48 +538,68 @@ class _DevicesPageState extends State<DevicesPage> {
   }) {
     final theme = Theme.of(context);
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
-            width: 1,
+    return Material(
+      color: theme.colorScheme.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+              width: 1,
+            ),
           ),
-        ),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundColor: iconColor.withValues(alpha: 0.15),
-              child: Icon(icon, color: iconColor, size: 20),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 10, color: theme.colorScheme.outline),
-                  ),
-                ],
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: iconColor, size: 22),
               ),
-            ),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13.5,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios,
+                size: 13,
+                color: theme.colorScheme.outline.withValues(alpha: 0.5),
+              ),
+            ],
+          ),
         ),
       ),
     );

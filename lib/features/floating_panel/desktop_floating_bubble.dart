@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../platform/window_service.dart';
-import '../settings/settings_controller.dart';
 import '../tasks/task_controller.dart';
 
 class DesktopFloatingBubble extends StatefulWidget {
@@ -41,10 +40,8 @@ class _DesktopFloatingBubbleState extends State<DesktopFloatingBubble>
 
   @override
   Widget build(BuildContext context) {
-    final settings = context.watch<SettingsController>();
     final taskController = context.watch<TaskController>();
     final pendingCount = taskController.tasks.where((t) => !t.completed).length;
-    final color = settings.themeSeedColor;
 
     return Directionality(
       textDirection: TextDirection.ltr,
@@ -97,36 +94,35 @@ class _DesktopFloatingBubbleState extends State<DesktopFloatingBubble>
                     height: 72,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [
-                          color,
-                          Color.lerp(color, Colors.black, 0.25) ?? color,
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+                      color: Colors.white,
                       boxShadow: [
                         BoxShadow(
-                          color: color.withValues(alpha: _isHovered ? 0.6 : 0.4),
-                          blurRadius: _isHovered ? 12 : 8,
-                          spreadRadius: 2,
+                          color: Colors.black.withValues(alpha: _isHovered ? 0.22 : 0.14),
+                          blurRadius: _isHovered ? 14 : 10,
+                          spreadRadius: 1,
+                          offset: const Offset(0, 3),
+                        ),
+                        BoxShadow(
+                          color: const Color(0xFF185ABD).withValues(alpha: _isHovered ? 0.25 : 0.15),
+                          blurRadius: 16,
+                          spreadRadius: 1,
                         ),
                       ],
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.85),
-                        width: 2.2,
+                        color: const Color(0xFFE2E8F0),
+                        width: 1.5,
                       ),
                     ),
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        // Center Robot Logo
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
+                        // Center Checkmark Logo
+                        ClipOval(
                           child: Image.asset(
                             'assets/logo.png',
-                            width: 44,
-                            height: 44,
+                            width: 66,
+                            height: 66,
+                            fit: BoxFit.contain,
                           ),
                         ),
 

@@ -98,8 +98,7 @@ class _TasksPageState extends State<TasksPage> {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
+            ClipOval(
               child: Image.asset('assets/logo.png', width: 30, height: 30),
             ),
             const SizedBox(width: 10),
