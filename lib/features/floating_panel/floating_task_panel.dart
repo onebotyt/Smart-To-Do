@@ -7,6 +7,8 @@ import 'package:synctask/features/sync/sync_controller.dart';
 import 'package:synctask/features/tasks/task_controller.dart';
 import '../../platform/window_service.dart';
 import '../settings/settings_controller.dart';
+import '../sky/sky_controller.dart';
+import '../sky/widgets/sky_mascot_widget.dart';
 
 class FloatingTaskPanel extends StatefulWidget {
   final VoidCallback? onClose;
@@ -58,6 +60,7 @@ class _FloatingTaskPanelState extends State<FloatingTaskPanel> {
     final taskController = context.watch<TaskController>();
     final syncController = context.watch<SyncController>();
     final settings = context.watch<SettingsController?>();
+    final sky = context.watch<SkyController?>();
 
     final allTasks = taskController.tasks;
     final filteredTasks = _onlyPending
@@ -294,6 +297,8 @@ class _FloatingTaskPanelState extends State<FloatingTaskPanel> {
               ),
             ),
 
+              // Sky / Jarvis Autonomous AI HUD Banner
+              if (sky != null) _buildJarvisHud(context, sky, allTasks),
               // Quick Input Box
               Padding(
                 padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
@@ -481,5 +486,122 @@ class _FloatingTaskPanelState extends State<FloatingTaskPanel> {
 
   bool _isOverdue(int dueMs) {
     return dueMs < DateTime.now().millisecondsSinceEpoch;
+  }
+  Widget _buildJarvisHud(BuildContext context, SkyController sky, List<Task> allTasks) {
+    final theme = Theme.of(context);
+    final spokenText = sky.lastSpokenText ?? sky.generateBriefing(allTasks);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(10, 6, 10, 2),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: theme.colorScheme.primary.withValues(alpha: 0.25),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              SkyMascotWidget(size: 28, mood: sky.mood),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  spokenText,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontSize: 11,
+                    fontStyle: FontStyle.italic,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                ActionChip(
+                  visualDensity: VisualDensity.compact,
+                  avatar: const Icon(Icons.record_voice_over_outlined, size: 14),
+                  label: const Text('Briefing', style: TextStyle(fontSize: 11)),
+                  onPressed: () {
+                    sky.speakBriefing(sky.generateBriefing(allTasks));
+                  },
+                ),
+                const SizedBox(width: 6),
+                ActionChip(
+                  visualDensity: VisualDensity.compact,
+                  avatar: const Icon(Icons.bolt, size: 14, color: Colors.amber),
+                  label: const Text('Next Task', style: TextStyle(fontSize: 11)),
+                  onPressed: () {
+                    sky.speakBriefing(sky.recommendNextAction(allTasks));
+                  },
+                ),
+                const SizedBox(width: 6),
+                ActionChip(
+                  visualDensity: VisualDensity.compact,
+                  avatar: const Icon(Icons.chat_bubble_outline, size: 14, color: Color(0xFF6366F1)),
+                  label: const Text('Ask Sky', style: TextStyle(fontSize: 11)),
+                  onPressed: () => _showAskSkyDialog(context, sky),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAskSkyDialog(BuildContext context, SkyController sky) {
+    final askCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.auto_awesome, color: Color(0xFF6366F1), size: 20),
+            SizedBox(width: 8),
+            Text('Ask Sky AI', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: TextField(
+          controller: askCtrl,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'e.g. What tasks should I prioritize today?',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (val) {
+            if (val.trim().isNotEmpty) {
+              Navigator.pop(ctx);
+              final syncCtrl = context.read<SyncController?>();
+              sky.ask(val.trim(), syncEngine: syncCtrl?.engine);
+            }
+          },
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () {
+              final val = askCtrl.text.trim();
+              if (val.isNotEmpty) {
+                Navigator.pop(ctx);
+                final syncCtrl = context.read<SyncController?>();
+                sky.ask(val, syncEngine: syncCtrl?.engine);
+              }
+            },
+            child: const Text('Ask'),
+          ),
+        ],
+      ),
+    );
   }
 }

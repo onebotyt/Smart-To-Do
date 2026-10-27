@@ -22,6 +22,7 @@ class TaskController extends ChangeNotifier {
   final SettingsController _settings;
   final WidgetService? _widgetService;
   final VoidCallback? onTasksMutated;
+  void Function(Task task, bool completed)? onTaskCompletionChanged;
 
   List<Task> tasks = [];
   List<String> categories = [];
@@ -123,9 +124,11 @@ class TaskController extends ChangeNotifier {
   }
 
   Future<void> toggle(Task t) async {
+    final willBeCompleted = !t.completed;
     await _repo.toggleComplete(t);
     await refresh();
     onTasksMutated?.call();
+    onTaskCompletionChanged?.call(t, willBeCompleted);
   }
 
   /// Alias for toggle

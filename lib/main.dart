@@ -74,6 +74,18 @@ Future<void> main([List<String> args = const []]) async {
     () => syncController.triggerAutoSync(),
   )..refresh();
 
+  taskController.onTaskCompletionChanged = (task, completed) {
+    if (completed) {
+      skyController.celebrateTaskCompletion(task.title);
+    }
+  };
+
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    await Future.delayed(const Duration(milliseconds: 800));
+    final briefing = skyController.generateBriefing(taskController.tasks);
+    skyController.speakBriefing(briefing);
+  });
+
   syncController.engine.onTasksReceived = () {
     taskController.refresh();
   };
