@@ -9,6 +9,8 @@ import 'package:synctask/data/models/device.dart';
 import 'package:synctask/features/sync/discovery/lan_discovery.dart';
 import 'package:synctask/features/sync/qr_scan_page.dart';
 import 'package:synctask/features/sync/sync_controller.dart';
+import 'package:synctask/features/media_transfer/media_transfer_controller.dart';
+import 'package:synctask/features/media_transfer/widgets/media_transfer_widget.dart';
 import 'package:synctask/features/sync/transport/sync_engine.dart';
 import 'package:synctask/features/tasks/task_controller.dart';
 
@@ -343,6 +345,10 @@ class _DevicesPageState extends State<DevicesPage> {
             ...sync.devices.map(
               (device) => _buildDeviceTile(context, sync, device),
             ),
+          const SizedBox(height: 16),
+
+          // Direct P2P Media & File Share Section
+          const MediaTransferSection(),
           const SizedBox(height: 16),
 
           // Connection Methods Hub (All Different Methods)
@@ -696,7 +702,20 @@ class _DevicesPageState extends State<DevicesPage> {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (device.trusted && device.ipAddress != null)
+            if (device.trusted && device.ipAddress != null) ...[
+              IconButton(
+                icon: const Icon(Icons.upload_file),
+                tooltip: 'Send File / Media to ${device.name}',
+                onPressed: () async {
+                  final media = context.read<MediaTransferController>();
+                  final count = await media.pickAndSendFiles(device);
+                  if (count > 0 && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Sending $count file(s) to ${device.name}...')),
+                    );
+                  }
+                },
+              ),
               IconButton(
                 icon: const Icon(Icons.sync),
                 tooltip: 'Sync with ${device.name}',
@@ -707,6 +726,7 @@ class _DevicesPageState extends State<DevicesPage> {
                   }
                 },
               ),
+            ],
             PopupMenuButton<String>(
               onSelected: (value) async {
                 if (value == 'toggle_trust') {

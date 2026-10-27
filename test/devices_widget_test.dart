@@ -7,6 +7,7 @@ import 'package:synctask/data/database/app_database.dart';
 import 'package:synctask/data/models/device.dart';
 import 'package:synctask/data/repositories/device_repository.dart';
 import 'package:synctask/data/repositories/task_repository.dart';
+import 'package:synctask/features/media_transfer/media_transfer_controller.dart';
 import 'package:synctask/features/sync/devices_page.dart';
 import 'package:synctask/features/sync/sync_controller.dart';
 import 'package:synctask/features/tasks/task_controller.dart';
@@ -26,6 +27,7 @@ void main() {
     late TaskRepository taskRepo;
     late DeviceRepository deviceRepo;
     late SyncController syncController;
+    late MediaTransferController mediaController;
 
     await tester.runAsync(() async {
       SharedPreferences.setMockInitialValues({});
@@ -36,6 +38,7 @@ void main() {
       deviceRepo = DeviceRepository(db);
       syncController = SyncController(taskRepo: taskRepo, deviceRepo: deviceRepo);
       await syncController.init();
+      mediaController = MediaTransferController(syncEngine: syncController.engine);
     });
 
     addTearDown(() async => await db.close());
@@ -46,6 +49,7 @@ void main() {
           ChangeNotifierProvider.value(value: settings),
           ChangeNotifierProvider(create: (_) => TaskController(taskRepo, settings)),
           ChangeNotifierProvider.value(value: syncController),
+          ChangeNotifierProvider.value(value: mediaController),
         ],
         child: const MaterialApp(
           home: DevicesPage(),

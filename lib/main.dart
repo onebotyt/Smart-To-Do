@@ -9,6 +9,7 @@ import 'data/database/app_database.dart';
 import 'data/repositories/device_repository.dart';
 import 'data/repositories/task_repository.dart';
 import 'features/clipboard/clipboard_controller.dart';
+import 'features/media_transfer/media_transfer_controller.dart';
 import 'features/settings/settings_controller.dart';
 import 'features/sync/sync_controller.dart';
 import 'features/tasks/task_controller.dart';
@@ -37,6 +38,7 @@ Future<void> main([List<String> args = const []]) async {
   await syncController.init();
   final clipboardController = ClipboardController(syncEngine: syncController.engine);
   await clipboardController.init();
+  final mediaController = MediaTransferController(syncEngine: syncController.engine);
   final settings = await SettingsController.load();
 
   final taskController = TaskController(
@@ -58,6 +60,7 @@ Future<void> main([List<String> args = const []]) async {
         ChangeNotifierProvider.value(value: taskController),
         ChangeNotifierProvider.value(value: syncController),
         ChangeNotifierProvider.value(value: clipboardController),
+        ChangeNotifierProvider.value(value: mediaController),
       ],
       child: const SyncTaskApp(),
     ),

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as path;
 import 'package:provider/provider.dart';
 
 import '../../data/models/task.dart';
+import '../media_transfer/task_attachment_helper.dart';
 import '../settings/settings_controller.dart';
 import 'task_controller.dart';
 
@@ -20,15 +22,20 @@ class _TaskEditPageState extends State<TaskEditPage> {
   late int _priority;
   late Recurrence _recurrence;
   DateTime? _due;
+  List<String> _attachments = [];
 
   @override
   void initState() {
     super.initState();
     final t = widget.task;
+    if (t != null) {
+      _attachments = TaskAttachmentHelper.extractAttachments(t.notes);
+    }
     // Note-first: if notes exist, use notes; otherwise use title
-    final initialNote = t != null
+    final initialRaw = t != null
         ? (t.notes.isNotEmpty ? t.notes : t.title)
         : '';
+    final initialNote = TaskAttachmentHelper.cleanNoteText(initialRaw);
 
     _noteController = TextEditingController(text: initialNote);
     _categoryController = TextEditingController(text: t?.category ?? '');
@@ -66,7 +73,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
 
   Future<void> _save() async {
     final rawText = _noteController.text.trim();
-    if (rawText.isEmpty) {
+    if (rawText.isEmpty && _attachments.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a note for this task')),
       );
@@ -80,8 +87,8 @@ class _TaskEditPageState extends State<TaskEditPage> {
     final lines = rawText.split('\n').where((l) => l.trim().isNotEmpty).toList();
     final title = lines.isNotEmpty
         ? (lines.first.length > 80 ? '${lines.first.substring(0, 77)}...' : lines.first)
-        : rawText;
-    final notes = rawText;
+        : (_attachments.isNotEmpty ? path.basename(_attachments.first) : 'New Task');
+    final notes = TaskAttachmentHelper.formatNoteWithAttachments(rawText, _attachments);
 
     final existing = widget.task;
     if (existing == null) {
@@ -177,6 +184,45 @@ class _TaskEditPageState extends State<TaskEditPage> {
                             hintText: 'What do you need to do? Write your note here...',
                             border: InputBorder.none,
                             contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                        if (_attachments.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: _attachments.map((attachPath) {
+                              final fileName = path.basename(attachPath);
+                              return InputChip(
+                                avatar: const Icon(Icons.attachment, size: 16),
+                                label: Text(
+                                  fileName,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                onDeleted: () {
+                                  setState(() {
+                                    _attachments.remove(attachPath);
+                                  });
+                                },
+                                onPressed: () => TaskAttachmentHelper.openAttachment(attachPath),
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            icon: const Icon(Icons.attach_file, size: 18),
+                            label: const Text('Attach File / Media'),
+                            onPressed: () async {
+                              final attachPath = await TaskAttachmentHelper.pickAndStoreAttachment();
+                              if (attachPath != null && mounted) {
+                                setState(() {
+                                  _attachments.add(attachPath);
+                                });
+                              }
+                            },
                           ),
                         ),
                       ],

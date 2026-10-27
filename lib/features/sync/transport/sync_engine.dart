@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:path/path.dart' as path;
+import 'package:synctask/features/media_transfer/media_storage_helper.dart';
 import 'package:synctask/data/models/device.dart';
 import 'package:synctask/data/models/task.dart';
 import 'package:synctask/data/repositories/device_repository.dart';
@@ -61,6 +63,18 @@ class SyncEngine {
 
   /// Callback when tasks are received and applied from a peer.
   void Function()? onTasksReceived;
+
+  /// Callbacks for direct peer-to-peer media and file transfers.
+  void Function(String transferId, String fileName, int fileSize, String senderId, String senderName)?
+      onFileTransferStarted;
+  void Function(String transferId, int bytesReceived, int totalBytes)?
+      onFileTransferProgress;
+  void Function(String transferId, File file, String senderId, String senderName)?
+      onFileTransferCompleted;
+  void Function(String transferId, String error)?
+      onFileTransferFailed;
+
+  final Map<String, _InboundFileState> _inboundTransfers = {};
 
   SyncEngine({
     required TaskRepository taskRepo,
@@ -405,6 +419,10 @@ class SyncEngine {
           ));
         } else if (msg.type == SyncMessageType.ack) {
           await _taskRepo.markChangesSynced();
+        } else if (msg.type == SyncMessageType.fileMeta) {
+          await _handleInboundFileMeta(socket, msg, sender);
+        } else if (msg.type == SyncMessageType.fileChunk) {
+          await _handleInboundFileChunk(socket, msg);
         }
       } catch (_) {
         // Discard errors on malformed messages and close
@@ -549,8 +567,220 @@ class SyncEngine {
     } catch (_) {}
   }
 
+  Future<void> _handleInboundFileMeta(Socket socket, SyncMessage msg, Device sender) async {
+    final transferId = msg.payload['transfer_id'] as String;
+    final fileName = msg.payload['file_name'] as String;
+    final fileSize = msg.payload['file_size'] as int;
+    final checksum = msg.payload['checksum'] as String;
+    final totalChunks = msg.payload['total_chunks'] as int;
+
+    final tempDir = Directory.systemTemp;
+    final tempFile = File(path.join(tempDir.path, 'synctask_$transferId.tmp'));
+    if (tempFile.existsSync()) {
+      try { tempFile.deleteSync(); } catch (_) {}
+    }
+    final sink = tempFile.openWrite(mode: FileMode.write);
+
+    final state = _InboundFileState(
+      transferId: transferId,
+      fileName: fileName,
+      fileSize: fileSize,
+      checksum: checksum,
+      totalChunks: totalChunks,
+      senderId: msg.senderId,
+      senderName: sender.name,
+      tempFile: tempFile,
+      sink: sink,
+    );
+    _inboundTransfers[transferId] = state;
+    onFileTransferStarted?.call(transferId, fileName, fileSize, msg.senderId, sender.name);
+  }
+
+  Future<void> _handleInboundFileChunk(Socket socket, SyncMessage msg) async {
+    final transferId = msg.payload['transfer_id'] as String;
+    final chunkIndex = msg.payload['chunk_index'] as int;
+    final totalChunks = msg.payload['total_chunks'] as int;
+    final dataBase64 = msg.payload['data'] as String;
+
+    final state = _inboundTransfers[transferId];
+    if (state == null) return;
+
+    final chunkBytes = base64Decode(dataBase64);
+    state.sink.add(chunkBytes);
+    state.bytesReceived += chunkBytes.length;
+    state.receivedChunks++;
+
+    onFileTransferProgress?.call(transferId, state.bytesReceived, state.fileSize);
+
+    if (chunkIndex >= totalChunks - 1 || state.receivedChunks >= totalChunks) {
+      await state.sink.flush();
+      await state.sink.close();
+
+      final fileBytes = await state.tempFile.readAsBytes();
+      final calculatedHash = sha256.convert(fileBytes).toString();
+
+      if (calculatedHash.toLowerCase() == state.checksum.toLowerCase()) {
+        final saveDir = await getMediaSaveDirectory();
+        final safeName = sanitizeFileName(state.fileName);
+        String destPath = path.join(saveDir.path, safeName);
+
+        if (File(destPath).existsSync()) {
+          final ext = path.extension(safeName);
+          final base = path.basenameWithoutExtension(safeName);
+          final ts = DateTime.now().millisecondsSinceEpoch;
+          destPath = path.join(saveDir.path, '${base}_$ts$ext');
+        }
+
+        final savedFile = await state.tempFile.copy(destPath);
+        try { state.tempFile.deleteSync(); } catch (_) {}
+
+        _inboundTransfers.remove(transferId);
+        _sendMsg(socket, SyncMessage.fileAck(
+          senderId: await _deviceRepo.getLocalDeviceId(),
+          transferId: transferId,
+          success: true,
+        ));
+
+        onFileTransferCompleted?.call(transferId, savedFile, state.senderId, state.senderName);
+      } else {
+        _inboundTransfers.remove(transferId);
+        try { state.tempFile.deleteSync(); } catch (_) {}
+        _sendMsg(socket, SyncMessage.fileAck(
+          senderId: await _deviceRepo.getLocalDeviceId(),
+          transferId: transferId,
+          success: false,
+          error: 'SHA-256 checksum mismatch',
+        ));
+        onFileTransferFailed?.call(transferId, 'Checksum mismatch');
+      }
+    }
+  }
+
+  Future<bool> sendFileToPeer({
+    required Device device,
+    required File file,
+    required String transferId,
+    Function(int bytesSent, int totalBytes)? onProgress,
+  }) async {
+    final fileName = path.basename(file.path);
+    final fileBytes = await file.readAsBytes();
+    final fileSize = fileBytes.length;
+    final checksum = sha256.convert(fileBytes).toString();
+
+    final localDeviceId = await _deviceRepo.getLocalDeviceId();
+    final localDeviceName = await _deviceRepo.getLocalDeviceName();
+
+    const chunkSize = 64 * 1024;
+    final totalChunks = (fileSize / chunkSize).ceil().clamp(1, 999999);
+
+    final host = device.ipAddress;
+    if (host == null || host.isEmpty) {
+      return false;
+    }
+
+    final socket = await Socket.connect(
+      host,
+      device.port,
+      timeout: const Duration(seconds: 8),
+    );
+
+    try {
+      final lines = utf8.decoder.bind(socket).transform(const LineSplitter());
+      final completer = Completer<bool>();
+
+      final sub = lines.listen((line) {
+        if (line.trim().isEmpty) return;
+        final msg = SyncMessage.fromJson(line);
+        if (msg.type == SyncMessageType.fileAck) {
+          final success = msg.payload['success'] as bool? ?? false;
+          if (!completer.isCompleted) {
+            completer.complete(success);
+          }
+        }
+      }, onError: (_) {
+        if (!completer.isCompleted) completer.complete(false);
+      });
+
+      _sendMsg(socket, SyncMessage.hello(
+        senderId: localDeviceId,
+        deviceName: localDeviceName,
+      ));
+
+      _sendMsg(socket, SyncMessage.fileMeta(
+        senderId: localDeviceId,
+        transferId: transferId,
+        fileName: fileName,
+        fileSize: fileSize,
+        fileType: path.extension(fileName),
+        checksum: checksum,
+        totalChunks: totalChunks,
+      ));
+
+      int bytesSent = 0;
+      for (int i = 0; i < totalChunks; i++) {
+        final start = i * chunkSize;
+        final end = (start + chunkSize).clamp(0, fileSize);
+        final chunk = fileBytes.sublist(start, end);
+        final base64Chunk = base64Encode(chunk);
+
+        _sendMsg(socket, SyncMessage.fileChunk(
+          senderId: localDeviceId,
+          transferId: transferId,
+          chunkIndex: i,
+          totalChunks: totalChunks,
+          dataBase64: base64Chunk,
+        ));
+
+        bytesSent += chunk.length;
+        onProgress?.call(bytesSent, fileSize);
+
+        if (i % 8 == 0) {
+          await Future.delayed(const Duration(milliseconds: 10));
+        }
+      }
+
+      final success = await completer.future.timeout(
+        const Duration(seconds: 45),
+        onTimeout: () => false,
+      );
+
+      await sub.cancel();
+      return success;
+    } finally {
+      try {
+        await socket.close();
+      } catch (_) {}
+    }
+  }
+
   void dispose() {
     stop();
     _statusController.close();
   }
+}
+
+class _InboundFileState {
+  final String transferId;
+  final String fileName;
+  final int fileSize;
+  final String checksum;
+  final int totalChunks;
+  final String senderId;
+  final String senderName;
+  final File tempFile;
+  final IOSink sink;
+  int receivedChunks = 0;
+  int bytesReceived = 0;
+
+  _InboundFileState({
+    required this.transferId,
+    required this.fileName,
+    required this.fileSize,
+    required this.checksum,
+    required this.totalChunks,
+    required this.senderId,
+    required this.senderName,
+    required this.tempFile,
+    required this.sink,
+  });
 }

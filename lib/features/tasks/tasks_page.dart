@@ -8,6 +8,7 @@ import '../../platform/floating_panel_service.dart';
 import '../../platform/update_service.dart';
 import '../../platform/window_service.dart';
 import '../floating_panel/floating_task_panel.dart';
+import '../media_transfer/task_attachment_helper.dart';
 import '../settings/settings_controller.dart';
 import '../settings/settings_page.dart';
 import '../sync/devices_page.dart';
@@ -598,7 +599,9 @@ class _TaskCard extends StatelessWidget {
                             color: task.completed ? Colors.grey : theme.colorScheme.onSurface,
                           ),
                           child: Text(
-                            task.notes.isNotEmpty ? task.notes : task.title,
+                            TaskAttachmentHelper.cleanNoteText(
+                              task.notes.isNotEmpty ? task.notes : task.title,
+                            ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -606,6 +609,39 @@ class _TaskCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       Row(
                         children: [
+                          ...() {
+                            final attachments = TaskAttachmentHelper.extractAttachments(task.notes);
+                            if (attachments.isEmpty) return <Widget>[];
+                            return <Widget>[
+                              InkWell(
+                                borderRadius: BorderRadius.circular(8),
+                                onTap: () => TaskAttachmentHelper.openAttachment(attachments.first),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.attachment, size: 12, color: theme.colorScheme.primary),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        '${attachments.length} file${attachments.length > 1 ? 's' : ''}',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                          color: theme.colorScheme.primary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                            ];
+                          }(),
                           if (task.category.isNotEmpty) ...[
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),

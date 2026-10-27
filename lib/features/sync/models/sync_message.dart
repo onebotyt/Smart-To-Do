@@ -12,6 +12,9 @@ class SyncMessageType {
   static const String ack = 'ack';
   static const String error = 'error';
   static const String clipboardText = 'clipboard_text';
+  static const String fileMeta = 'file_meta';
+  static const String fileChunk = 'file_chunk';
+  static const String fileAck = 'file_ack';
 }
 
 /// Represents a protocol message exchanged between SyncTask devices.
@@ -252,6 +255,75 @@ class SyncMessage {
         'text': text,
         'hash': hash,
         'timestamp': DateTime.now().millisecondsSinceEpoch,
+      },
+    );
+  }
+
+  factory SyncMessage.fileMeta({
+    required String senderId,
+    required String transferId,
+    required String fileName,
+    required int fileSize,
+    required String fileType,
+    required String checksum,
+    required int totalChunks,
+    int counter = 1,
+  }) {
+    return SyncMessage(
+      id: _uuid.v4(),
+      type: SyncMessageType.fileMeta,
+      counter: counter,
+      senderId: senderId,
+      payload: {
+        'transfer_id': transferId,
+        'file_name': fileName,
+        'file_size': fileSize,
+        'file_type': fileType,
+        'checksum': checksum,
+        'total_chunks': totalChunks,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      },
+    );
+  }
+
+  factory SyncMessage.fileChunk({
+    required String senderId,
+    required String transferId,
+    required int chunkIndex,
+    required int totalChunks,
+    required String dataBase64,
+    int counter = 1,
+  }) {
+    return SyncMessage(
+      id: _uuid.v4(),
+      type: SyncMessageType.fileChunk,
+      counter: counter,
+      senderId: senderId,
+      payload: {
+        'transfer_id': transferId,
+        'chunk_index': chunkIndex,
+        'total_chunks': totalChunks,
+        'data': dataBase64,
+      },
+    );
+  }
+
+  factory SyncMessage.fileAck({
+    required String senderId,
+    required String transferId,
+    required bool success,
+    String? error,
+    int counter = 1,
+  }) {
+    return SyncMessage(
+      id: _uuid.v4(),
+      type: SyncMessageType.fileAck,
+      counter: counter,
+      senderId: senderId,
+      payload: {
+        'transfer_id': transferId,
+        'success': success,
+        if (error != null) 'error': error,
       },
     );
   }
