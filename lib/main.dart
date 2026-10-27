@@ -14,9 +14,13 @@ import 'features/media_transfer/media_transfer_controller.dart';
 import 'features/settings/settings_controller.dart';
 import 'features/sync/sync_controller.dart';
 import 'features/tasks/task_controller.dart';
-import 'platform/native_media_service.dart';
+import 'core/ai/model_gateway.dart';
 import 'data/database/projects_database.dart';
+import 'data/repositories/memory_repository.dart';
+import 'features/memory/memory_controller.dart';
+import 'features/sky/sky_controller.dart';
 import 'features/studio/studio_app.dart';
+import 'platform/native_media_service.dart';
 import 'platform/window_service.dart';
 
 Future<void> main([List<String> args = const []]) async {
@@ -51,6 +55,17 @@ Future<void> main([List<String> args = const []]) async {
   await clipboardController.init();
   final mediaController = MediaTransferController(syncEngine: syncController.engine);
   final settings = await SettingsController.load();
+  final memoryRepo = await MemoryRepository.open();
+  final modelGateway = ManagedModelGateway(
+    modelId: 'sky-core',
+    modelName: 'Sky 1.5B',
+    estimatedMemoryMb: 500,
+  );
+  final skyController = SkyController(
+    modelGateway: modelGateway,
+    memoryRepo: memoryRepo,
+  );
+  final memoryController = MemoryController(memoryRepo);
 
   final taskController = TaskController(
     repo,
@@ -66,6 +81,9 @@ Future<void> main([List<String> args = const []]) async {
   syncController.engine.onRemoteTasksApplied = (tasks) {
     for (final t in tasks) {
       if (t.deleted) continue;
+      if (t.completed) {
+        skyController.celebrateTaskCompletion(t.title);
+      }
       if (Platform.isWindows) {
         if (t.completed) {
           NativeMediaService.notifyMediaReceived(
@@ -91,6 +109,8 @@ Future<void> main([List<String> args = const []]) async {
         ChangeNotifierProvider.value(value: syncController),
         ChangeNotifierProvider.value(value: clipboardController),
         ChangeNotifierProvider.value(value: mediaController),
+        ChangeNotifierProvider.value(value: skyController),
+        ChangeNotifierProvider.value(value: memoryController),
       ],
       child: const SyncTaskApp(),
     ),

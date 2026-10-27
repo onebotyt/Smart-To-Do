@@ -6,6 +6,8 @@ import 'package:synctask/features/media_transfer/media_transfer_controller.dart'
 import 'package:synctask/features/media_transfer/widgets/media_deck_popup.dart';
 import 'package:synctask/features/settings/settings_controller.dart';
 import 'package:synctask/features/tasks/task_controller.dart';
+import 'package:synctask/features/sky/sky_controller.dart';
+import 'package:synctask/features/sky/widgets/sky_mascot_widget.dart';
 
 class FloatingBubbleOverlay extends StatefulWidget {
   final Widget child;
@@ -124,6 +126,7 @@ class _FloatingBubbleOverlayState extends State<FloatingBubbleOverlay>
     }
 
     final taskController = context.watch<TaskController>();
+    final sky = context.watch<SkyController?>();
     final pendingCount =
         taskController.tasks.where((t) => !t.completed).length;
 
@@ -379,14 +382,20 @@ class _FloatingBubbleOverlayState extends State<FloatingBubbleOverlay>
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          ClipOval(
-                            child: Image.asset(
-                              'assets/logo.png',
-                              width: 50,
-                              height: 50,
-                              fit: BoxFit.contain,
+                          if (sky != null)
+                            SkyMascotWidget(
+                              size: 50,
+                              mood: sky.mood,
+                            )
+                          else
+                            ClipOval(
+                              child: Image.asset(
+                                'assets/logo.png',
+                                width: 50,
+                                height: 50,
+                                fit: BoxFit.contain,
+                              ),
                             ),
-                          ),
                           if (pendingCount > 0)
                             Positioned(
                               right: 0,

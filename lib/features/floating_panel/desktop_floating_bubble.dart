@@ -8,6 +8,8 @@ import '../../platform/window_service.dart';
 import '../media_transfer/media_transfer_controller.dart';
 import '../media_transfer/models/media_transfer.dart';
 import '../tasks/task_controller.dart';
+import '../sky/sky_controller.dart';
+import '../sky/widgets/sky_mascot_widget.dart';
 
 class DesktopFloatingBubble extends StatefulWidget {
   const DesktopFloatingBubble({super.key});
@@ -77,6 +79,7 @@ class _DesktopFloatingBubbleState extends State<DesktopFloatingBubble>
   @override
   Widget build(BuildContext context) {
     final taskController = context.watch<TaskController>();
+    final sky = context.watch<SkyController?>();
     final pendingCount = taskController.tasks.where((t) => !t.completed).length;
 
     return Directionality(
@@ -152,24 +155,32 @@ class _DesktopFloatingBubbleState extends State<DesktopFloatingBubble>
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        // Center Content: Either Recent Image Thumbnail or Checkmark Logo
-                        ClipOval(
-                          child: (_recentMedia != null &&
-                                  File(_recentMedia!.filePath).existsSync() &&
-                                  _isImageFile(_recentMedia!.filePath))
-                              ? Image.file(
-                                  File(_recentMedia!.filePath),
-                                  width: 66,
-                                  height: 66,
-                                  fit: BoxFit.cover,
-                                )
-                              : Image.asset(
-                                  'assets/logo.png',
-                                  width: 66,
-                                  height: 66,
-                                  fit: BoxFit.contain,
-                                ),
-                        ),
+                        // Center Content: Either Recent Image Thumbnail, Sky Mascot, or Default Logo
+                        if (_recentMedia != null &&
+                            File(_recentMedia!.filePath).existsSync() &&
+                            _isImageFile(_recentMedia!.filePath))
+                          ClipOval(
+                            child: Image.file(
+                              File(_recentMedia!.filePath),
+                              width: 66,
+                              height: 66,
+                              fit: BoxFit.cover,
+                            ),
+                          )
+                        else if (sky != null)
+                          SkyMascotWidget(
+                            size: 64,
+                            mood: sky.mood,
+                          )
+                        else
+                          ClipOval(
+                            child: Image.asset(
+                              'assets/logo.png',
+                              width: 66,
+                              height: 66,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
 
                         // Pending tasks badge
                         if (pendingCount > 0)
