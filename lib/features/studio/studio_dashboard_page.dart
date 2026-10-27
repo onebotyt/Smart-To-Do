@@ -5,6 +5,7 @@ import 'package:sqflite/sqflite.dart';
 import '../../core/lifecycle/resource_manager.dart';
 import '../../core/lifecycle/resource_state.dart';
 import '../../data/database/projects_database.dart';
+import 'project_workspace_page.dart';
 
 class StudioDashboardPage extends StatefulWidget {
   final Database projectsDb;
@@ -390,10 +391,13 @@ class _StudioDashboardPageState extends State<StudioDashboardPage> {
         subtitle: Text(proj['root_path'] ?? '', style: const TextStyle(fontSize: 12)),
         trailing: FilledButton.tonal(
           onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Opened workspace: ${proj['name']}'),
-                duration: const Duration(seconds: 2),
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (ctx) => ProjectWorkspacePage(
+                  project: proj,
+                  projectsDb: widget.projectsDb,
+                ),
               ),
             );
           },

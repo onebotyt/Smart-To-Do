@@ -11,6 +11,8 @@ import 'package:synctask/data/models/task.dart';
 import 'package:synctask/data/repositories/device_repository.dart';
 import 'package:synctask/data/repositories/task_repository.dart';
 import 'package:synctask/features/sync/models/sync_message.dart';
+import 'package:synctask/core/ai/model_gateway.dart';
+import 'package:synctask/core/lifecycle/resource_manager.dart';
 
 class SyncResult {
   final bool success;
@@ -78,6 +80,12 @@ class SyncEngine {
       onFileTransferCompleted;
   void Function(String transferId, String error)?
       onFileTransferFailed;
+
+  /// Callback when an AI query response is received from a peer device.
+  void Function(String queryId, String text, bool isComplete)? onAiResponseReceived;
+
+  /// Callback when an AI status/busy message is received from a peer.
+  void Function(String queryId, String status, String reason)? onAiStatusReceived;
 
   final Map<String, _InboundFileState> _inboundTransfers = {};
 
@@ -440,6 +448,18 @@ class SyncEngine {
           await _handleInboundFileMeta(socket, msg, sender);
         } else if (msg.type == SyncMessageType.fileChunk) {
           await _handleInboundFileChunk(socket, msg);
+        } else if (msg.type == SyncMessageType.aiQuery) {
+          await _handleInboundAiQuery(socket, msg);
+        } else if (msg.type == SyncMessageType.aiResponse) {
+          final qId = msg.payload['query_id'] as String? ?? '';
+          final text = msg.payload['text'] as String? ?? '';
+          final complete = msg.payload['is_complete'] as bool? ?? true;
+          onAiResponseReceived?.call(qId, text, complete);
+        } else if (msg.type == SyncMessageType.aiStatus) {
+          final qId = msg.payload['query_id'] as String? ?? '';
+          final status = msg.payload['status'] as String? ?? 'busy';
+          final reason = msg.payload['reason'] as String? ?? '';
+          onAiStatusReceived?.call(qId, status, reason);
         }
       } catch (_) {
         // Discard errors on malformed messages and close
@@ -854,6 +874,87 @@ class SyncEngine {
     }
   }
 
+  Future<void> _handleInboundAiQuery(Socket socket, SyncMessage msg) async {
+    final queryId = msg.payload['query_id'] as String? ?? '';
+    final prompt = msg.payload['prompt'] as String? ?? '';
+    final localDeviceId = await _deviceRepo.getLocalDeviceId();
+
+    if (ResourceManager.instance.isUnderMemoryPressure) {
+      _sendMsg(socket, SyncMessage.aiStatus(
+        senderId: localDeviceId,
+        queryId: queryId,
+        status: 'busy',
+        reason: 'Host is currently under memory pressure',
+      ));
+      return;
+    }
+
+    try {
+      final answer = await ManagedModelGateway.instance.generate(prompt);
+      _sendMsg(socket, SyncMessage.aiResponse(
+        senderId: localDeviceId,
+        queryId: queryId,
+        text: answer,
+        isComplete: true,
+      ));
+    } catch (e) {
+      _sendMsg(socket, SyncMessage.aiStatus(
+        senderId: localDeviceId,
+        queryId: queryId,
+        status: 'error',
+        reason: e.toString(),
+      ));
+    }
+  }
+
+  /// Sends an AI prompt to a paired remote peer (e.g. mobile offloading to PC).
+  Future<bool> sendAiQuery({
+    required Device peer,
+    required String queryId,
+    required String prompt,
+    String? model,
+    Duration timeout = const Duration(seconds: 12),
+  }) async {
+    Socket? socket;
+    try {
+      final localDeviceId = await _deviceRepo.getLocalDeviceId();
+      socket = await Socket.connect(peer.ipAddress, peer.port, timeout: timeout);
+
+      final msg = SyncMessage.aiQuery(
+        senderId: localDeviceId,
+        queryId: queryId,
+        prompt: prompt,
+        model: model,
+      );
+      _sendMsg(socket, msg);
+
+      final lineStream = utf8.decoder.bind(socket).transform(const LineSplitter());
+      await for (final line in lineStream.timeout(timeout)) {
+        if (line.trim().isEmpty) continue;
+        final response = SyncMessage.fromJson(line);
+        if (response.type == SyncMessageType.aiResponse) {
+          final text = response.payload['text'] as String? ?? '';
+          final complete = response.payload['is_complete'] as bool? ?? true;
+          onAiResponseReceived?.call(queryId, text, complete);
+          return true;
+        } else if (response.type == SyncMessageType.aiStatus) {
+          final status = response.payload['status'] as String? ?? 'busy';
+          final reason = response.payload['reason'] as String? ?? '';
+          onAiStatusReceived?.call(queryId, status, reason);
+          return false;
+        }
+      }
+      return false;
+    } catch (e) {
+      AppLogger.warning('sync', 'Failed to offload AI query to peer ${peer.name}: $e');
+      return false;
+    } finally {
+      try {
+        await socket?.close();
+      } catch (_) {}
+    }
+  }
+
   void dispose() {
     stop();
     _statusController.close();
@@ -884,4 +985,5 @@ class _InboundFileState {
     required this.tempFile,
     required this.sink,
   });
+
 }

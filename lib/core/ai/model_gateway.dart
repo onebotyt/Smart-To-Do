@@ -20,6 +20,12 @@ abstract class ModelGateway {
 /// Robust model gateway integrating with ResourceManager for automatic idle unloads
 /// and memory budget protection on 8 GB host machines.
 class ManagedModelGateway implements ModelGateway {
+  static final ManagedModelGateway _defaultInstance = ManagedModelGateway(
+    modelId: 'sky_core_model',
+    modelName: 'Sky Assistant Engine',
+  );
+  static ManagedModelGateway get instance => _defaultInstance;
+
   @override
   final String modelId;
   @override

@@ -8,6 +8,7 @@ import 'resource_state.dart';
 class ResourceManager extends ChangeNotifier {
   static final ResourceManager _instance = ResourceManager._internal();
   factory ResourceManager() => _instance;
+  static ResourceManager get instance => _instance;
   ResourceManager._internal();
 
   /// Maximum allowed RAM (in MB) allocated to AI models and engineering workers
@@ -134,6 +135,14 @@ class ResourceManager extends ChangeNotifier {
       }
     }
     _notifyChanges();
+  }
+
+  /// Removes a worker from manager.
+  void unregisterWorker(String id) {
+    final worker = _workers.remove(id);
+    if (worker != null) {
+      _notifyChanges();
+    }
   }
 
   /// Gracefully requests stopping all active engineering workers and unloads all models.

@@ -15,6 +15,9 @@ class SyncMessageType {
   static const String fileMeta = 'file_meta';
   static const String fileChunk = 'file_chunk';
   static const String fileAck = 'file_ack';
+  static const String aiQuery = 'ai_query';
+  static const String aiResponse = 'ai_response';
+  static const String aiStatus = 'ai_status';
 }
 
 /// Represents a protocol message exchanged between SyncTask devices.
@@ -328,6 +331,67 @@ class SyncMessage {
         'transfer_id': transferId,
         'success': success,
         if (error != null) 'error': error,
+      },
+    );
+  }
+  factory SyncMessage.aiQuery({
+    required String senderId,
+    required String queryId,
+    required String prompt,
+    String? model,
+    int counter = 1,
+  }) {
+    return SyncMessage(
+      id: _uuid.v4(),
+      type: SyncMessageType.aiQuery,
+      counter: counter,
+      senderId: senderId,
+      payload: {
+        'query_id': queryId,
+        'prompt': prompt,
+        if (model != null) 'model': model,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      },
+    );
+  }
+
+  factory SyncMessage.aiResponse({
+    required String senderId,
+    required String queryId,
+    required String text,
+    bool isComplete = true,
+    int counter = 1,
+  }) {
+    return SyncMessage(
+      id: _uuid.v4(),
+      type: SyncMessageType.aiResponse,
+      counter: counter,
+      senderId: senderId,
+      payload: {
+        'query_id': queryId,
+        'text': text,
+        'is_complete': isComplete,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      },
+    );
+  }
+
+  factory SyncMessage.aiStatus({
+    required String senderId,
+    required String queryId,
+    required String status,
+    required String reason,
+    int counter = 1,
+  }) {
+    return SyncMessage(
+      id: _uuid.v4(),
+      type: SyncMessageType.aiStatus,
+      counter: counter,
+      senderId: senderId,
+      payload: {
+        'query_id': queryId,
+        'status': status,
+        'reason': reason,
       },
     );
   }
