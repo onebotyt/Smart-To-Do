@@ -160,6 +160,8 @@ class _FloatingBubbleOverlayState extends State<FloatingBubbleOverlay>
                           );
                         },
                         child: FloatingTaskPanel(
+                          width: panelWidth,
+                          height: panelHeight,
                           onClose: () {
                             setState(() => _isExpanded = false);
                           },

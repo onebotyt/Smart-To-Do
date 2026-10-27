@@ -27,6 +27,8 @@ class DesktopFloatingPanel extends StatelessWidget {
         color: Colors.transparent,
         child: SizedBox.expand(
           child: FloatingTaskPanel(
+            width: double.infinity,
+            height: double.infinity,
             onClose: onClose,
             onExpand: onExpand,
           ),

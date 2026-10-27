@@ -70,8 +70,8 @@ class _FloatingTaskPanelState extends State<FloatingTaskPanel> {
     return Material(
       color: Colors.transparent,
       child: Container(
-        width: widget.width ?? 340,
-        height: widget.height ?? 480,
+        width: widget.width ?? double.infinity,
+        height: widget.height ?? double.infinity,
         decoration: BoxDecoration(
           color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
