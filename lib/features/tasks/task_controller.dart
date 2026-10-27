@@ -19,6 +19,7 @@ class TaskController extends ChangeNotifier {
   }
 
   final TaskRepository _repo;
+  TaskRepository get repo => _repo;
   final SettingsController _settings;
   final WidgetService? _widgetService;
   final VoidCallback? onTasksMutated;

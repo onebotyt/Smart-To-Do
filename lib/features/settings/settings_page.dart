@@ -10,9 +10,10 @@ import '../clipboard/clipboard_controller.dart';
 import '../floating_panel/floating_task_panel.dart';
 import '../sync/devices_page.dart';
 import '../update/update_dialog.dart';
-import '../sky/widgets/sky_mascot_widget.dart';
 import 'settings_controller.dart';
 import 'widgets/diagnostic_log_sheet.dart';
+import '../auth/google_auth_card.dart';
+import '../tasks/task_controller.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -29,6 +30,9 @@ class SettingsPage extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             children: [
+              const _Header('Cloud Backup & Account (MongoDB Atlas)'),
+              GoogleAuthCard(taskRepo: context.read<TaskController>().repo),
+
               const _Header('Sync & Devices'),
               Card(
                 child: ListTile(
@@ -524,8 +528,8 @@ class _UpdateTileState extends State<_UpdateTile> {
           color: Theme.of(context).colorScheme.primaryContainer,
         ),
         alignment: Alignment.center,
-        child: const ClipOval(
-          child: SkyMascotWidget(size: 28),
+        child: ClipOval(
+          child: Image.asset('assets/logo.png', width: 28, height: 28),
         ),
       ),
       title: const Text('SyncTask Updates', style: TextStyle(fontWeight: FontWeight.bold)),

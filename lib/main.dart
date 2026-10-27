@@ -14,6 +14,7 @@ import 'features/media_transfer/media_transfer_controller.dart';
 import 'features/settings/settings_controller.dart';
 import 'features/sync/sync_controller.dart';
 import 'features/tasks/task_controller.dart';
+import 'data/services/cloud_sync_service.dart';
 import 'core/ai/model_gateway.dart';
 import 'data/database/projects_database.dart';
 import 'data/repositories/memory_repository.dart';
@@ -67,6 +68,7 @@ Future<void> main([List<String> args = const []]) async {
     memoryRepo: memoryRepo,
   );
   final memoryController = MemoryController(memoryRepo);
+  final cloudSyncService = CloudSyncService();
 
   final taskController = TaskController(
     repo,
@@ -127,6 +129,7 @@ Future<void> main([List<String> args = const []]) async {
         ChangeNotifierProvider.value(value: mediaController),
         ChangeNotifierProvider.value(value: skyController),
         ChangeNotifierProvider.value(value: memoryController),
+        ChangeNotifierProvider.value(value: cloudSyncService),
       ],
       child: const SyncTaskApp(),
     ),
