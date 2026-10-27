@@ -15,6 +15,8 @@ import 'features/settings/settings_controller.dart';
 import 'features/sync/sync_controller.dart';
 import 'features/tasks/task_controller.dart';
 import 'platform/native_media_service.dart';
+import 'data/database/projects_database.dart';
+import 'features/studio/studio_app.dart';
 import 'platform/window_service.dart';
 
 Future<void> main([List<String> args = const []]) async {
@@ -27,6 +29,12 @@ Future<void> main([List<String> args = const []]) async {
   }
 
   PlatformWindowService.init();
+
+  if (args.contains('--studio')) {
+    final projectsDb = await ProjectsDatabase.open();
+    runApp(StudioApp(projectsDb: projectsDb));
+    return;
+  }
 
   final isBubbleArg = args.contains('--floating-bubble') || args.contains('--bubble');
   if (isBubbleArg) {

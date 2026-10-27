@@ -267,6 +267,27 @@ class _TasksPageState extends State<TasksPage> with WidgetsBindingObserver {
                         context,
                         MaterialPageRoute(builder: (_) => const SettingsPage()),
                       );
+                    } else if (val == 'studio') {
+                      try {
+                        Process.start(
+                          Platform.resolvedExecutable,
+                          ['--studio'],
+                          mode: ProcessStartMode.detached,
+                        );
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Launching AI Engineering Studio in separate process...'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Failed to launch studio: $e'),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
                     }
                   },
                   itemBuilder: (ctx) => [
@@ -319,6 +340,17 @@ class _TasksPageState extends State<TasksPage> with WidgetsBindingObserver {
                         ],
                       ),
                     ),
+                    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS)
+                      const PopupMenuItem(
+                        value: 'studio',
+                        child: Row(
+                          children: [
+                            Icon(Icons.auto_awesome, size: 20, color: Color(0xFF6366F1)),
+                            SizedBox(width: 12),
+                            Text('AI Engineering Studio'),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
                 const SizedBox(width: 4),
@@ -463,6 +495,33 @@ class _TasksPageState extends State<TasksPage> with WidgetsBindingObserver {
               MaterialPageRoute(builder: (_) => const SettingsPage()),
             ),
           ),
+          if (Platform.isWindows || Platform.isLinux || Platform.isMacOS)
+            _HeaderActionButton(
+              icon: Icons.auto_awesome,
+              tooltip: 'Launch AI Engineering Studio (Separate process)',
+              onPressed: () {
+                try {
+                  Process.start(
+                    Platform.resolvedExecutable,
+                    ['--studio'],
+                    mode: ProcessStartMode.detached,
+                  );
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Launching AI Engineering Studio in separate process...'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to launch studio: $e'),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                }
+              },
+            ),
           const SizedBox(width: 4),
         ],
         bottom: PreferredSize(
