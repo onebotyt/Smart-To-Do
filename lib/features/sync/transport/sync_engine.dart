@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as path;
+import 'package:synctask/core/logger/app_logger.dart';
 import 'package:synctask/features/media_transfer/media_storage_helper.dart';
 import 'package:synctask/data/models/device.dart';
 import 'package:synctask/data/models/task.dart';
@@ -63,6 +64,9 @@ class SyncEngine {
 
   /// Callback when tasks are received and applied from a peer.
   void Function()? onTasksReceived;
+
+  /// Callback when a new device is paired and trusted (incoming or outgoing).
+  void Function(Device device)? onDevicePaired;
 
   /// Callbacks for direct peer-to-peer media and file transfers.
   void Function(String transferId, String fileName, int fileSize, String senderId, String senderName)?
@@ -140,6 +144,7 @@ class SyncEngine {
       final localDeviceName = await _deviceRepo.getLocalDeviceName();
       final fingerprint = sha256.convert(utf8.encode('$localDeviceId:$pin')).toString();
 
+      AppLogger.info('pairing', 'Initiating pairing to $host:$port with PIN $pin');
       socket = await Socket.connect(host, port, timeout: timeout);
 
       final requestMsg = SyncMessage.pairRequest(
@@ -147,6 +152,7 @@ class SyncEngine {
         deviceName: localDeviceName,
         pairingCode: pin,
         fingerprint: fingerprint,
+        port: actualPort ?? 43884,
       );
 
       _sendMsg(socket, requestMsg);
@@ -159,22 +165,26 @@ class SyncEngine {
         if (response.type == SyncMessageType.pairAccept) {
           final peerName = response.payload['name'] as String? ?? 'SyncTask Peer';
           final peerFingerprint = response.payload['fingerprint'] as String? ?? '';
+          final peerPort = response.payload['port'] as int? ?? port;
 
           final pairedDevice = Device(
             id: response.senderId,
             name: peerName,
             fingerprint: peerFingerprint,
             ipAddress: host,
-            port: port,
+            port: peerPort,
             pairedAt: DateTime.now(),
             lastSeen: DateTime.now(),
             trusted: true,
           );
 
           await _deviceRepo.save(pairedDevice);
+          AppLogger.info('pairing', 'Pairing accepted by $peerName ($host:$peerPort)');
+          onDevicePaired?.call(pairedDevice);
           return PairResult(success: true, device: pairedDevice);
         } else if (response.type == SyncMessageType.pairReject) {
           final reason = response.payload['reason'] as String? ?? 'Pairing rejected';
+          AppLogger.warning('pairing', 'Pairing rejected by peer: $reason');
           return PairResult(success: false, error: reason);
         } else {
           return PairResult(
@@ -186,16 +196,19 @@ class SyncEngine {
 
       return const PairResult(success: false, error: 'Connection closed without response');
     } on SocketException catch (e) {
+      AppLogger.error('pairing', 'SocketException connecting to $host:$port: ${e.message}');
       return PairResult(
         success: false,
         error: 'Cannot connect to $host:$port (${e.message}). Make sure both devices are on the same Wi-Fi and firewall allows port 43884.',
       );
     } on TimeoutException {
+      AppLogger.error('pairing', 'Connection to $host:$port timed out');
       return PairResult(
         success: false,
         error: 'Connection to $host:$port timed out. Check your Wi-Fi or firewall settings.',
       );
     } catch (e) {
+      AppLogger.error('pairing', 'Error pairing with $host:$port', e);
       return PairResult(success: false, error: e.toString());
     } finally {
       try {
@@ -454,6 +467,7 @@ class SyncEngine {
         pin == _activePairingPin;
 
     if (!isPinValid) {
+      AppLogger.warning('pairing', 'Inbound pair request rejected: Invalid or expired PIN $pin from ${socket.remoteAddress.address}');
       _sendMsg(socket, SyncMessage.pairReject(
         senderId: localDeviceId,
         reason: 'Invalid or expired pairing code',
@@ -462,13 +476,22 @@ class SyncEngine {
       return;
     }
 
+    // Clean remote IP (remove ::ffff: IPv6 prefix if present)
+    var peerIp = socket.remoteAddress.address;
+    if (peerIp.startsWith('::ffff:')) {
+      peerIp = peerIp.substring(7);
+    }
+    final peerPort = msg.payload['port'] as int? ??
+        (msg.payload['listen_port'] as int?) ??
+        43884;
+
     // Save as paired and trusted
     final newDevice = Device(
       id: msg.senderId,
       name: peerName,
       fingerprint: peerFingerprint,
-      ipAddress: socket.remoteAddress.address,
-      port: 43884,
+      ipAddress: peerIp,
+      port: peerPort,
       pairedAt: now,
       lastSeen: now,
       trusted: true,
@@ -481,7 +504,11 @@ class SyncEngine {
       senderId: localDeviceId,
       deviceName: localDeviceName,
       fingerprint: sha256.convert(utf8.encode('$localDeviceId:$pin')).toString(),
+      port: actualPort ?? 43884,
     ));
+
+    AppLogger.info('pairing', 'Accepted inbound pairing from $peerName ($peerIp:$peerPort). Saved to devices.');
+    onDevicePaired?.call(newDevice);
   }
 
   Future<void> _handleInboundVersionVector(Socket socket, SyncMessage msg) async {

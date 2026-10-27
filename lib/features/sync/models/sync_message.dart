@@ -103,6 +103,7 @@ class SyncMessage {
     required String deviceName,
     required String pairingCode,
     required String fingerprint,
+    int port = 43884,
     int counter = 1,
   }) {
     return SyncMessage(
@@ -114,6 +115,7 @@ class SyncMessage {
         'name': deviceName,
         'pairing_code': pairingCode,
         'fingerprint': fingerprint,
+        'port': port,
       },
     );
   }
@@ -122,6 +124,7 @@ class SyncMessage {
     required String senderId,
     required String deviceName,
     required String fingerprint,
+    int port = 43884,
     int counter = 1,
   }) {
     return SyncMessage(
@@ -132,6 +135,7 @@ class SyncMessage {
       payload: {
         'name': deviceName,
         'fingerprint': fingerprint,
+        'port': port,
       },
     );
   }

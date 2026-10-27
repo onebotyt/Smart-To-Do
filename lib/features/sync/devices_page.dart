@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:synctask/data/models/device.dart';
+import 'package:synctask/features/settings/widgets/diagnostic_log_sheet.dart';
 import 'package:synctask/features/sync/discovery/lan_discovery.dart';
 import 'package:synctask/features/sync/qr_scan_page.dart';
 import 'package:synctask/features/sync/sync_controller.dart';
@@ -13,6 +14,7 @@ import 'package:synctask/features/media_transfer/media_transfer_controller.dart'
 import 'package:synctask/features/media_transfer/widgets/media_transfer_widget.dart';
 import 'package:synctask/features/sync/transport/sync_engine.dart';
 import 'package:synctask/features/tasks/task_controller.dart';
+import 'package:synctask/platform/native_network_service.dart';
 
 enum ConnectionMethodType {
   qrScan,
@@ -154,6 +156,11 @@ class _DevicesPageState extends State<DevicesPage> {
       appBar: AppBar(
         title: const Text('Devices & Sync'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.receipt_long_outlined),
+            tooltip: 'Action Logs & GitHub Report',
+            onPressed: () => showDiagnosticLogsModal(context),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh Networks & Discovery',
@@ -510,6 +517,7 @@ class _DevicesPageState extends State<DevicesPage> {
                 sync,
                 initialMethod: ConnectionMethodType.wifi,
               ),
+              onSettingsTap: () => NativeNetworkService.openWifiSettings(),
             ),
             _buildMethodCard(
               context: context,
@@ -522,6 +530,7 @@ class _DevicesPageState extends State<DevicesPage> {
                 sync,
                 initialMethod: ConnectionMethodType.mobileHotspot,
               ),
+              onSettingsTap: () => NativeNetworkService.openHotspotSettings(),
             ),
             _buildMethodCard(
               context: context,
@@ -534,6 +543,7 @@ class _DevicesPageState extends State<DevicesPage> {
                 sync,
                 initialMethod: ConnectionMethodType.bluetoothPan,
               ),
+              onSettingsTap: () => NativeNetworkService.openBluetoothSettings(),
             ),
           ],
         ),
@@ -548,6 +558,7 @@ class _DevicesPageState extends State<DevicesPage> {
     required String title,
     required String subtitle,
     required VoidCallback onTap,
+    VoidCallback? onSettingsTap,
   }) {
     final theme = Theme.of(context);
 
@@ -606,11 +617,19 @@ class _DevicesPageState extends State<DevicesPage> {
                   ],
                 ),
               ),
-              Icon(
-                Icons.arrow_forward_ios,
-                size: 13,
-                color: theme.colorScheme.outline.withValues(alpha: 0.5),
-              ),
+              if (onSettingsTap != null)
+                IconButton(
+                  icon: const Icon(Icons.settings_outlined, size: 18),
+                  tooltip: 'Open System Settings',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: onSettingsTap,
+                )
+              else
+                Icon(
+                  Icons.arrow_forward_ios,
+                  size: 13,
+                  color: theme.colorScheme.outline.withValues(alpha: 0.5),
+                ),
             ],
           ),
         ),
@@ -1126,7 +1145,44 @@ class _PairingCodeContentState extends State<_PairingCodeContent> {
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 6),
+
+        // Native System Settings Shortcut Button for selected method
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: OutlinedButton.icon(
+            icon: Icon(
+              _selectedMethod == ConnectionMethodType.bluetoothPan
+                  ? Icons.bluetooth
+                  : (_selectedMethod == ConnectionMethodType.mobileHotspot
+                      ? Icons.wifi_tethering
+                      : Icons.wifi),
+              size: 15,
+            ),
+            label: Text(
+              _selectedMethod == ConnectionMethodType.bluetoothPan
+                  ? (Platform.isWindows ? 'Open Windows Bluetooth Settings' : 'Turn On / Open Bluetooth Settings')
+                  : (_selectedMethod == ConnectionMethodType.mobileHotspot
+                      ? (Platform.isWindows ? 'Open Windows Hotspot Settings' : 'Open Hotspot / Tethering Settings')
+                      : (Platform.isWindows ? 'Open Windows Wi-Fi Settings' : 'Open Wi-Fi Settings')),
+              style: const TextStyle(fontSize: 11),
+            ),
+            style: OutlinedButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            ),
+            onPressed: () {
+              if (_selectedMethod == ConnectionMethodType.bluetoothPan) {
+                NativeNetworkService.openBluetoothSettings();
+              } else if (_selectedMethod == ConnectionMethodType.mobileHotspot) {
+                NativeNetworkService.openHotspotSettings();
+              } else {
+                NativeNetworkService.openWifiSettings();
+              }
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
 
         // 2. High-contrast QR Code Container
         Container(
@@ -1256,11 +1312,25 @@ class _PairingCodeContentState extends State<_PairingCodeContent> {
     final isSelected = _selectedMethod == method;
     return Expanded(
       child: GestureDetector(
-        onTap: () {
+        onTap: () async {
           setState(() {
             _selectedMethod = method;
             _updateActiveIp();
           });
+          if (method == ConnectionMethodType.bluetoothPan && Platform.isAndroid) {
+            final isEnabled = await NativeNetworkService.isBluetoothEnabled();
+            if (!isEnabled && mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Bluetooth is off. Turn on Bluetooth for Bluetooth PAN pairing.'),
+                  action: SnackBarAction(
+                    label: 'Turn On',
+                    onPressed: () => NativeNetworkService.openBluetoothSettings(),
+                  ),
+                ),
+              );
+            }
+          }
         },
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 6),

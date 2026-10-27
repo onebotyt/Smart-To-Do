@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:synctask/platform/native_network_service.dart';
 
 class QRScanPage extends StatefulWidget {
   const QRScanPage({super.key});
@@ -24,7 +25,7 @@ class _QRScanPageState extends State<QRScanPage> {
     super.dispose();
   }
 
-  void _onDetect(BarcodeCapture capture) {
+  Future<void> _onDetect(BarcodeCapture capture) async {
     if (_hasDetected) return;
 
     for (final barcode in capture.barcodes) {
@@ -38,7 +39,47 @@ class _QRScanPageState extends State<QRScanPage> {
               data.containsKey('pin')) {
             _hasDetected = true;
             HapticFeedback.mediumImpact();
-            Navigator.of(context).pop(data);
+
+            final method = data['method'] as String?;
+            if (method == 'bluetoothPan') {
+              final isEnabled = await NativeNetworkService.isBluetoothEnabled();
+              if (!isEnabled && mounted) {
+                final openSettings = await showDialog<bool>(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (ctx) => AlertDialog(
+                    icon: const Icon(Icons.bluetooth_disabled, color: Colors.indigo, size: 36),
+                    title: const Text('Turn on Bluetooth'),
+                    content: const Text(
+                      'The pairing device is configured for Bluetooth Link / PAN, but your phone\'s Bluetooth is currently off.\n\nPlease turn on Bluetooth to connect.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Cancel'),
+                      ),
+                      FilledButton.icon(
+                        icon: const Icon(Icons.bluetooth, size: 18),
+                        label: const Text('Open Bluetooth Settings'),
+                        onPressed: () {
+                          NativeNetworkService.openBluetoothSettings();
+                          Navigator.pop(ctx, true);
+                        },
+                      ),
+                    ],
+                  ),
+                );
+
+                if (openSettings != true) {
+                  _hasDetected = false;
+                  return;
+                }
+              }
+            }
+
+            if (mounted) {
+              Navigator.of(context).pop(data);
+            }
             return;
           }
         } catch (_) {}

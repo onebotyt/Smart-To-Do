@@ -11,6 +11,7 @@ import '../floating_panel/floating_task_panel.dart';
 import '../sync/devices_page.dart';
 import '../update/update_dialog.dart';
 import 'settings_controller.dart';
+import 'widgets/diagnostic_log_sheet.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -277,6 +278,9 @@ class SettingsPage extends StatelessWidget {
 
               const _Header('App Updates'),
               const Card(child: _UpdateTile()),
+
+              const _Header('Diagnostics & GitHub Support'),
+              const Card(child: _DiagnosticsTile()),
               const SizedBox(height: 24),
             ],
           ),
@@ -560,4 +564,27 @@ class _Header extends StatelessWidget {
               ),
         ),
       );
+}
+
+class _DiagnosticsTile extends StatelessWidget {
+  const _DiagnosticsTile();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          color: Colors.blueGrey.withValues(alpha: 0.15),
+        ),
+        child: const Icon(Icons.receipt_long_outlined, color: Colors.blueGrey, size: 20),
+      ),
+      title: const Text('Diagnostics & Action Logs'),
+      subtitle: const Text('View real-time event logs & send diagnostic reports to GitHub'),
+      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+      onTap: () => showDiagnosticLogsModal(context),
+    );
+  }
 }

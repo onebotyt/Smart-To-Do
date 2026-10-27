@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'app/app.dart';
+import 'core/logger/app_logger.dart';
 import 'data/database/app_database.dart';
 import 'data/repositories/device_repository.dart';
 import 'data/repositories/task_repository.dart';
@@ -17,6 +18,7 @@ import 'platform/window_service.dart';
 
 Future<void> main([List<String> args = const []]) async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AppLogger.init();
 
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
     sqfliteFfiInit();

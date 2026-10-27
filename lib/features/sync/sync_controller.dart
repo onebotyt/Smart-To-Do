@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:synctask/core/logger/app_logger.dart';
 import 'package:synctask/data/models/device.dart';
 import 'package:synctask/data/repositories/device_repository.dart';
 import 'package:synctask/data/repositories/task_repository.dart';
@@ -70,8 +71,17 @@ class SyncController extends ChangeNotifier {
 
     await refreshDevices();
 
+    // Instantly react when a device is paired (either incoming or outgoing)
+    _engine.onDevicePaired = (device) async {
+      AppLogger.info('sync', 'Device paired callback received for ${device.name} (${device.ipAddress}:${device.port})');
+      await refreshDevices();
+      notifyListeners();
+      await syncDevice(device);
+    };
+
     // Fast periodic background sync every 8 seconds with paired peers
-    _periodicSyncTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+    _periodicSyncTimer = Timer.periodic(const Duration(seconds: 8), (_) async {
+      await refreshDevices();
       if (!_isSyncing && _devices.any((d) => d.trusted && d.ipAddress != null)) {
         syncAll(silent: true);
       }
