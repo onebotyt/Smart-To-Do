@@ -41,7 +41,11 @@ void main() {
       mediaController = MediaTransferController(syncEngine: syncController.engine);
     });
 
-    addTearDown(() async => await db.close());
+    addTearDown(() async {
+      mediaController.dispose();
+      syncController.dispose();
+      await db.close();
+    });
 
     await tester.pumpWidget(
       MultiProvider(

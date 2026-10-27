@@ -104,6 +104,7 @@ class _TasksPageState extends State<TasksPage> with WidgetsBindingObserver {
   }
 
   Future<void> _checkForUpdates() async {
+    if (Platform.environment.containsKey('FLUTTER_TEST')) return;
     try {
       final updateService = GitHubUpdateService();
       final release = await updateService.checkForUpdate();
