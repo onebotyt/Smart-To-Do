@@ -586,7 +586,7 @@ class FloatingBubbleService : Service() {
         val db = getDb() ?: return
         val now = System.currentTimeMillis()
         try {
-            db.execSQL("UPDATE tasks SET completed = 1, updated_at = ? WHERE id = ?", arrayOf(now, taskId))
+            db.execSQL("UPDATE tasks SET completed = 1, updated_at = ? WHERE id = ?", arrayOf<Any>(now, taskId))
             var deviceId = "local"
             val cursor = db.rawQuery("SELECT value FROM meta WHERE key = 'device_id'", null)
             if (cursor.moveToFirst()) {
@@ -596,7 +596,7 @@ class FloatingBubbleService : Service() {
 
             db.execSQL(
                 "INSERT INTO change_log (task_id, op, revision, device_id, at, synced) VALUES (?, 'update', 0, ?, ?, 0)",
-                arrayOf(taskId, deviceId, now)
+                arrayOf<Any>(taskId, deviceId, now)
             )
         } catch (_: Exception) {
         } finally {
@@ -619,11 +619,11 @@ class FloatingBubbleService : Service() {
 
             db.execSQL(
                 "INSERT INTO tasks (id, title, notes, due_at, priority, category, completed, recurrence, created_at, updated_at, revision, device_id, deleted) VALUES (?, ?, '', NULL, 1, '', 0, 'none', ?, ?, 0, ?, 0)",
-                arrayOf(taskId, title.trim(), now, now, deviceId)
+                arrayOf<Any>(taskId, title.trim(), now, now, deviceId)
             )
             db.execSQL(
                 "INSERT INTO change_log (task_id, op, revision, device_id, at, synced) VALUES (?, 'create', 0, ?, ?, 0)",
-                arrayOf(taskId, deviceId, now)
+                arrayOf<Any>(taskId, deviceId, now)
             )
         } catch (_: Exception) {
         } finally {
