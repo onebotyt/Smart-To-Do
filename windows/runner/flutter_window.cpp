@@ -161,15 +161,7 @@ bool FlutterWindow::OnCreate() {
   }
   RegisterPlugins(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
-  HMODULE hKernel32 = GetModuleHandleW(L"kernel32.dll");
-  if (hKernel32) {
-    typedef HRESULT (WINAPI *RegisterApplicationRestartFunc)(PCWSTR, DWORD);
-    auto pfnRegister = reinterpret_cast<RegisterApplicationRestartFunc>(
-        GetProcAddress(hKernel32, "RegisterApplicationRestart"));
-    if (pfnRegister) {
-      pfnRegister(L"", 0);
-    }
-  }
+
 
   // Window Management Channel
   window_channel_ =

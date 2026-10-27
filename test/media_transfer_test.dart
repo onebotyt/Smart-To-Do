@@ -17,6 +17,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
   setUpAll(() {
+    TestWidgetsFlutterBinding.ensureInitialized();
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfiNoIsolate;
   });
@@ -414,6 +415,9 @@ void main() {
       expect(elapsed.inSeconds, lessThan(5));
     });
 
+  });
+
+  group('MediaStorageHelper Directory Tests', () {
     test('getMediaSaveDirectory falls back gracefully to a valid writable directory', () async {
       setCustomMediaSaveDirectory(null);
       final dir = await getMediaSaveDirectory();

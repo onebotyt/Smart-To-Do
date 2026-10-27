@@ -17,24 +17,28 @@ Future<Directory> getMediaSaveDirectory() async {
   }
 
   Directory? baseDir;
-  if (Platform.isAndroid) {
-    try {
-      baseDir = await getExternalStorageDirectory();
-    } catch (_) {}
-    if (baseDir == null) {
+  try {
+    if (Platform.isAndroid) {
       try {
-        baseDir = await getApplicationDocumentsDirectory();
+        baseDir = await getExternalStorageDirectory();
       } catch (_) {}
-    }
-  } else {
-    try {
-      baseDir = await getDownloadsDirectory();
-    } catch (_) {}
-    if (baseDir == null) {
+      if (baseDir == null) {
+        try {
+          baseDir = await getApplicationDocumentsDirectory();
+        } catch (_) {}
+      }
+    } else {
       try {
-        baseDir = await getApplicationDocumentsDirectory();
+        baseDir = await getDownloadsDirectory();
       } catch (_) {}
+      if (baseDir == null) {
+        try {
+          baseDir = await getApplicationDocumentsDirectory();
+        } catch (_) {}
+      }
     }
+  } catch (_) {
+    baseDir = null;
   }
 
   baseDir ??= Directory.systemTemp;
