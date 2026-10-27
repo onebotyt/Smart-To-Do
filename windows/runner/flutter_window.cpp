@@ -355,7 +355,9 @@ bool FlutterWindow::OnCreate() {
           flutter_controller_->engine()->messenger(), "com.synctask/native_update",
           &flutter::StandardMethodCodec::GetInstance());
 
-  update_channel_->SetMethodCallHandler([this](const auto& call, auto result) {
+  update_channel_->SetMethodCallHandler(
+      [this](const flutter::MethodCall<flutter::EncodableValue>& call,
+             std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
     if (call.method_name() == "installUpdate") {
       std::string installer_path;
       bool is_zip = false;
@@ -422,7 +424,7 @@ bool FlutterWindow::OnCreate() {
 
         STARTUPINFOW si;
         ZeroMemory(&si, sizeof(si));
-        si.cbSize = sizeof(si);
+        si.cb = sizeof(si);
         si.dwFlags = STARTF_USESHOWWINDOW;
         si.wShowWindow = SW_HIDE;
 
@@ -459,7 +461,9 @@ bool FlutterWindow::OnCreate() {
           flutter_controller_->engine()->messenger(), "com.synctask/native_settings",
           &flutter::StandardMethodCodec::GetInstance());
 
-  settings_channel_->SetMethodCallHandler([](const auto& call, auto result) {
+  settings_channel_->SetMethodCallHandler(
+      [](const flutter::MethodCall<flutter::EncodableValue>& call,
+         std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
     if (call.method_name() == "openBluetoothSettings") {
       ShellExecuteW(nullptr, L"open", L"ms-settings:bluetooth", nullptr, nullptr, SW_SHOWNORMAL);
       result->Success(flutter::EncodableValue(true));
