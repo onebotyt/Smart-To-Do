@@ -87,7 +87,14 @@ class _TasksPageState extends State<TasksPage> {
   Widget build(BuildContext context) {
     final c = context.watch<TaskController>();
     final settings = context.watch<SettingsController>();
+    final sync = context.watch<SyncController?>();
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final isConnected = sync?.hasConnectedDevice ?? false;
+    final connectedCount = sync?.connectedDeviceCount ?? 0;
+    final isSyncing = sync?.isSyncing ?? false;
+    final hasDevices = sync?.devices.isNotEmpty ?? false;
 
     final allTasks = c.tasks;
     final allCount = allTasks.length;
@@ -100,31 +107,29 @@ class _TasksPageState extends State<TasksPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ClipOval(
-              child: Image.asset('assets/logo.png', width: 30, height: 30),
+              child: Image.asset('assets/logo.png', width: 28, height: 28),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             const Text(
               'SyncTask',
-              style: TextStyle(fontWeight: FontWeight.bold),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
+            const SizedBox(width: 8),
+            _buildHeaderConnectionStatus(context, sync, theme),
           ],
         ),
         actions: [
           // Floating Desktop Bubble / Screen Bubble Toggle
-          IconButton(
-            icon: Icon(
-              settings.isFloatingBubbleEnabled
-                  ? Icons.bubble_chart
-                  : Icons.bubble_chart_outlined,
-              color: settings.isFloatingBubbleEnabled
-                  ? theme.colorScheme.primary
-                  : null,
-            ),
+          _HeaderActionButton(
+            icon: settings.isFloatingBubbleEnabled
+                ? Icons.bubble_chart
+                : Icons.bubble_chart_outlined,
             tooltip: Platform.isWindows
                 ? 'Desktop Floating Bubble (Floats over all apps)'
                 : (settings.isFloatingBubbleEnabled
                     ? 'Floating screen bubble: ON'
                     : 'Floating screen bubble: OFF'),
+            isActive: settings.isFloatingBubbleEnabled,
             onPressed: () {
               if (Platform.isWindows) {
                 PlatformWindowService.setWindowMode(AppWindowMode.bubble);
@@ -149,8 +154,8 @@ class _TasksPageState extends State<TasksPage> {
               }
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.picture_in_picture_alt_outlined),
+          _HeaderActionButton(
+            icon: Icons.picture_in_picture_alt_outlined,
             tooltip: Platform.isWindows
                 ? 'Desktop Floating Task Panel'
                 : 'Floating Panel Window',
@@ -171,40 +176,81 @@ class _TasksPageState extends State<TasksPage> {
               }
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.devices),
-            tooltip: 'Devices & Sync',
+          _HeaderActionButton(
+            icon: Icons.devices,
+            tooltip: 'Devices & Sync${connectedCount > 0 ? " ($connectedCount connected)" : ""}',
+            isActive: isConnected,
+            activeColor: isDark ? const Color(0xFF4ADE80) : const Color(0xFF16A34A),
+            activeBackgroundColor: isDark ? const Color(0x2822C55E) : const Color(0x1F16A34A),
+            badge: isConnected
+                ? Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF16A34A),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: theme.colorScheme.surface, width: 1.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF22C55E).withValues(alpha: 0.8),
+                          blurRadius: 4,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                  )
+                : (hasDevices
+                    ? Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '${sync!.devices.length}',
+                          style: const TextStyle(
+                            fontSize: 8,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      )
+                    : null),
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const DevicesPage()),
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.sync),
-            tooltip: 'Sync & Refresh tasks',
+          _HeaderActionButton(
+            icon: Icons.sync,
+            tooltip: isSyncing ? 'Syncing tasks...' : 'Sync & Refresh tasks',
+            isActive: isSyncing,
+            isSpinning: isSyncing,
             onPressed: () async {
-              final sync = context.read<SyncController>();
               final taskCtrl = context.read<TaskController>();
-              await sync.syncAll();
+              if (sync != null) {
+                await sync.syncAll();
+              }
               await taskCtrl.refresh();
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(sync.statusMessage ?? 'Tasks refreshed & synced!'),
+                    content: Text(sync?.statusMessage ?? 'Tasks refreshed & synced!'),
                     duration: const Duration(seconds: 2),
                   ),
                 );
               }
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
+          _HeaderActionButton(
+            icon: Icons.settings_outlined,
             tooltip: 'Settings',
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const SettingsPage()),
             ),
           ),
+          const SizedBox(width: 4),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(62),
@@ -298,33 +344,45 @@ class _TasksPageState extends State<TasksPage> {
                   ),
                 ),
 
-              // Responsive Filter Row (Fixes text wrapping on mobile)
+              // Responsive Filter Row with prominent active states
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
                 child: Row(
                   children: [
-                    _buildFilterPill(
-                      context,
-                      label: 'All ($allCount)',
-                      filter: TaskFilter.all,
-                      active: c.filter == TaskFilter.all,
-                      onTap: () => c.setFilter(TaskFilter.all),
+                    Expanded(
+                      child: _buildFilterPill(
+                        context,
+                        label: 'All',
+                        count: allCount,
+                        icon: Icons.layers_rounded,
+                        filter: TaskFilter.all,
+                        active: c.filter == TaskFilter.all,
+                        onTap: () => c.setFilter(TaskFilter.all),
+                      ),
                     ),
                     const SizedBox(width: 8),
-                    _buildFilterPill(
-                      context,
-                      label: 'Pending ($pendingCount)',
-                      filter: TaskFilter.pending,
-                      active: c.filter == TaskFilter.pending,
-                      onTap: () => c.setFilter(TaskFilter.pending),
+                    Expanded(
+                      child: _buildFilterPill(
+                        context,
+                        label: 'Pending',
+                        count: pendingCount,
+                        icon: Icons.pending_actions_rounded,
+                        filter: TaskFilter.pending,
+                        active: c.filter == TaskFilter.pending,
+                        onTap: () => c.setFilter(TaskFilter.pending),
+                      ),
                     ),
                     const SizedBox(width: 8),
-                    _buildFilterPill(
-                      context,
-                      label: 'Done ($completedCount)',
-                      filter: TaskFilter.completed,
-                      active: c.filter == TaskFilter.completed,
-                      onTap: () => c.setFilter(TaskFilter.completed),
+                    Expanded(
+                      child: _buildFilterPill(
+                        context,
+                        label: 'Done',
+                        count: completedCount,
+                        icon: Icons.check_circle_rounded,
+                        filter: TaskFilter.completed,
+                        active: c.filter == TaskFilter.completed,
+                        onTap: () => c.setFilter(TaskFilter.completed),
+                      ),
                     ),
                   ],
                 ),
@@ -340,23 +398,60 @@ class _TasksPageState extends State<TasksPage> {
                       Padding(
                         padding: const EdgeInsets.only(right: 6),
                         child: ChoiceChip(
+                          avatar: c.selectedCategory == null
+                              ? Icon(Icons.check, size: 16, color: theme.colorScheme.primary)
+                              : null,
                           label: const Text('All Categories'),
                           selected: c.selectedCategory == null,
+                          selectedColor: theme.colorScheme.primaryContainer,
+                          labelStyle: TextStyle(
+                            fontWeight: c.selectedCategory == null
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            color: c.selectedCategory == null
+                                ? theme.colorScheme.onPrimaryContainer
+                                : theme.colorScheme.onSurface,
+                          ),
+                          side: BorderSide(
+                            color: c.selectedCategory == null
+                                ? theme.colorScheme.primary
+                                : theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                            width: c.selectedCategory == null ? 1.5 : 1,
+                          ),
                           onSelected: (selected) {
                             if (selected) c.setSelectedCategory(null);
                           },
                         ),
                       ),
-                      ...c.categories.map((cat) => Padding(
-                            padding: const EdgeInsets.only(right: 6),
-                            child: ChoiceChip(
-                              label: Text(cat),
-                              selected: c.selectedCategory == cat,
-                              onSelected: (selected) {
-                                c.setSelectedCategory(selected ? cat : null);
-                              },
+                      ...c.categories.map((cat) {
+                        final isSel = c.selectedCategory == cat;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: ChoiceChip(
+                            avatar: isSel
+                                ? Icon(Icons.check, size: 16, color: theme.colorScheme.primary)
+                                : null,
+                            label: Text(cat),
+                            selected: isSel,
+                            selectedColor: theme.colorScheme.primaryContainer,
+                            labelStyle: TextStyle(
+                              fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                              color: isSel
+                                  ? theme.colorScheme.onPrimaryContainer
+                                  : theme.colorScheme.onSurface,
                             ),
-                          )),
+                            side: BorderSide(
+                              color: isSel
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                              width: isSel ? 1.5 : 1,
+                            ),
+                            onSelected: (selected) {
+                              c.setSelectedCategory(selected ? cat : null);
+                            },
+                          ),
+                        );
+                      }),
                     ],
                   ),
                 ),
@@ -460,47 +555,384 @@ class _TasksPageState extends State<TasksPage> {
     );
   }
 
+  Widget _buildHeaderConnectionStatus(
+    BuildContext context,
+    SyncController? sync,
+    ThemeData theme,
+  ) {
+    if (sync == null) return const SizedBox.shrink();
+    if (sync.isSyncing) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.primaryContainer.withValues(alpha: 0.8),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: theme.colorScheme.primary.withValues(alpha: 0.4),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 10,
+              height: 10,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            const SizedBox(width: 5),
+            Text(
+              'Syncing',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (sync.hasConnectedDevice) {
+      final isDark = theme.brightness == Brightness.dark;
+      final greenColor = isDark ? const Color(0xFF4ADE80) : const Color(0xFF16A34A);
+      final count = sync.connectedDeviceCount;
+      final label = count > 1 ? '$count Online' : (sync.connectedDeviceName ?? 'Connected');
+
+      return Tooltip(
+        message: 'Device Connected: ${sync.connectedDeviceName ?? "Local Peer"} (Tap to manage)',
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const DevicesPage()),
+          ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0x2222C55E) : const Color(0x1816A34A),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isDark ? const Color(0x664ADE80) : const Color(0x5516A34A),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: greenColor.withValues(alpha: 0.25),
+                  blurRadius: 6,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    color: greenColor,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: greenColor.withValues(alpha: 0.8),
+                        blurRadius: 4,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 5),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 110),
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.bold,
+                      color: greenColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (sync.trustedDevices.isNotEmpty) {
+      return Tooltip(
+        message: 'No paired devices currently reachable (Tap to view devices)',
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const DevicesPage()),
+          ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'Offline',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Tooltip(
+      message: 'Pair another phone or PC to enable device-to-device sync',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const DevicesPage()),
+        ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: theme.colorScheme.primary.withValues(alpha: 0.3),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.add_link, size: 12, color: theme.colorScheme.primary),
+              const SizedBox(width: 4),
+              Text(
+                'Pair Device',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildFilterPill(
     BuildContext context, {
     required String label,
+    required int count,
+    required IconData icon,
     required TaskFilter filter,
     required bool active,
     required VoidCallback onTap,
   }) {
     final theme = Theme.of(context);
-    return InkWell(
-      borderRadius: BorderRadius.circular(20),
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-        decoration: BoxDecoration(
-          color: active ? theme.colorScheme.primary : theme.colorScheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          decoration: BoxDecoration(
             color: active
                 ? theme.colorScheme.primary
-                : theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+                : (isDark
+                    ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35)
+                    : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6)),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: active
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+              width: active ? 1.5 : 1.0,
+            ),
+            boxShadow: active
+                ? [
+                    BoxShadow(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.35),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ]
+                : null,
           ),
-          boxShadow: active
-              ? [
-                  BoxShadow(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.28),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 15,
+                color: active ? Colors.white : theme.colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 5),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: active ? FontWeight.bold : FontWeight.w600,
+                    color: active ? Colors.white : theme.colorScheme.onSurface,
                   ),
-                ]
-              : null,
-        ),
-        child: AnimatedDefaultTextStyle(
-          duration: const Duration(milliseconds: 180),
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: active ? FontWeight.bold : FontWeight.w500,
-            color: active ? Colors.white : theme.colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(width: 5),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                decoration: BoxDecoration(
+                  color: active
+                      ? Colors.white.withValues(alpha: 0.25)
+                      : theme.colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '$count',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: active ? Colors.white : theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
           ),
-          child: Text(label),
+        ),
+      ),
+    );
+  }
+}
+
+class _HeaderActionButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+  final bool isActive;
+  final Color? activeColor;
+  final Color? activeBackgroundColor;
+  final Widget? badge;
+  final bool isSpinning;
+
+  const _HeaderActionButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+    this.isActive = false,
+    this.activeColor,
+    this.activeBackgroundColor,
+    this.badge,
+    this.isSpinning = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final effectiveActiveColor = activeColor ?? theme.colorScheme.primary;
+    final effectiveActiveBg = activeBackgroundColor ??
+        theme.colorScheme.primaryContainer.withValues(alpha: 0.85);
+
+    Widget iconWidget = isSpinning
+        ? SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: effectiveActiveColor,
+            ),
+          )
+        : Icon(
+            icon,
+            size: 19,
+            color: isActive ? effectiveActiveColor : theme.colorScheme.onSurfaceVariant,
+          );
+
+    if (badge != null) {
+      iconWidget = Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          iconWidget,
+          Positioned(
+            right: -4,
+            top: -4,
+            child: badge!,
+          ),
+        ],
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2.5, vertical: 8),
+      child: Tooltip(
+        message: tooltip,
+        child: Material(
+          color: isActive ? effectiveActiveBg : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: onPressed,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.all(7.5),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: isActive
+                      ? effectiveActiveColor.withValues(alpha: 0.5)
+                      : theme.colorScheme.outlineVariant.withValues(alpha: 0.25),
+                  width: isActive ? 1.4 : 0.8,
+                ),
+                boxShadow: isActive
+                    ? [
+                        BoxShadow(
+                          color: effectiveActiveColor.withValues(alpha: 0.2),
+                          blurRadius: 6,
+                          offset: const Offset(0, 1),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: iconWidget,
+            ),
+          ),
         ),
       ),
     );

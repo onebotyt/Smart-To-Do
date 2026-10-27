@@ -154,7 +154,45 @@ class _DevicesPageState extends State<DevicesPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Devices & Sync'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Devices & Sync'),
+            if (sync.hasConnectedDevice) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.green.withValues(alpha: 0.5)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: const BoxDecoration(
+                        color: Colors.green,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${sync.connectedDeviceCount} Online',
+                      style: const TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.receipt_long_outlined),
@@ -675,6 +713,8 @@ class _DevicesPageState extends State<DevicesPage> {
     SyncController sync,
     Device device,
   ) {
+    final isOnline = sync.isDeviceOnline(device);
+
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
       elevation: 0,
@@ -704,7 +744,28 @@ class _DevicesPageState extends State<DevicesPage> {
                 ),
               ),
             ),
-            if (!device.trusted)
+            if (device.trusted && isOnline)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                margin: const EdgeInsets.only(left: 6),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green.withValues(alpha: 0.4)),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.circle, size: 7, color: Colors.green),
+                    SizedBox(width: 4),
+                    Text(
+                      'Online',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green),
+                    ),
+                  ],
+                ),
+              )
+            else if (!device.trusted)
               const Chip(
                 label: Text('Revoked', style: TextStyle(fontSize: 10, color: Colors.red)),
                 padding: EdgeInsets.zero,

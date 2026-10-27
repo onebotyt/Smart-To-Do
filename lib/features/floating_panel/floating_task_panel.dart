@@ -129,6 +129,39 @@ class _FloatingTaskPanelState extends State<FloatingTaskPanel> {
                         ),
                       ),
                     ),
+                    if (syncController.hasConnectedDevice) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.green.withValues(alpha: 0.4)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: const BoxDecoration(
+                                color: Colors.green,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              syncController.connectedDeviceName ?? 'Connected',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const Spacer(),
                     // Quick Sync Button
                     if (syncController.isSyncing)
@@ -150,17 +183,32 @@ class _FloatingTaskPanelState extends State<FloatingTaskPanel> {
                         },
                       ),
                     if (settings != null)
-                      IconButton(
-                        icon: Icon(
-                          settings.isAlwaysOnTop ? Icons.push_pin : Icons.push_pin_outlined,
-                          size: 16,
-                          color: settings.isAlwaysOnTop ? theme.colorScheme.primary : null,
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 2),
+                        decoration: BoxDecoration(
+                          color: settings.isAlwaysOnTop
+                              ? theme.colorScheme.primaryContainer
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: settings.isAlwaysOnTop
+                                ? theme.colorScheme.primary.withValues(alpha: 0.5)
+                                : Colors.transparent,
+                            width: 1,
+                          ),
                         ),
-                        tooltip: settings.isAlwaysOnTop
-                            ? 'Pinned on top of all apps'
-                            : 'Pin on top of all apps',
-                        visualDensity: VisualDensity.compact,
-                        onPressed: () => settings.setAlwaysOnTop(!settings.isAlwaysOnTop),
+                        child: IconButton(
+                          icon: Icon(
+                            settings.isAlwaysOnTop ? Icons.push_pin : Icons.push_pin_outlined,
+                            size: 16,
+                            color: settings.isAlwaysOnTop ? theme.colorScheme.primary : null,
+                          ),
+                          tooltip: settings.isAlwaysOnTop
+                              ? 'Pinned on top of all apps'
+                              : 'Pin on top of all apps',
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () => settings.setAlwaysOnTop(!settings.isAlwaysOnTop),
+                        ),
                       ),
                     if (widget.onExpand != null)
                       IconButton(
@@ -299,8 +347,23 @@ class _FloatingTaskPanelState extends State<FloatingTaskPanel> {
                 child: Row(
                   children: [
                     FilterChip(
+                      avatar: _onlyPending
+                          ? Icon(Icons.check, size: 14, color: theme.colorScheme.primary)
+                          : null,
                       label: const Text('Pending only', style: TextStyle(fontSize: 11)),
                       selected: _onlyPending,
+                      selectedColor: theme.colorScheme.primaryContainer,
+                      labelStyle: TextStyle(
+                        fontSize: 11,
+                        fontWeight: _onlyPending ? FontWeight.bold : FontWeight.normal,
+                        color: _onlyPending ? theme.colorScheme.onPrimaryContainer : null,
+                      ),
+                      side: BorderSide(
+                        color: _onlyPending
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                        width: _onlyPending ? 1.4 : 1,
+                      ),
                       visualDensity: VisualDensity.compact,
                       onSelected: (val) => setState(() => _onlyPending = val),
                     ),

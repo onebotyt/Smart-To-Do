@@ -38,6 +38,7 @@ class SyncController extends ChangeNotifier {
         _discovery = discovery ?? LanDiscovery();
 
   List<Device> get devices => _devices;
+  List<Device> get trustedDevices => _devices.where((d) => d.trusted).toList();
   List<DiscoveredPeer> get discoveredPeers => _discoveredPeers;
   bool get isSyncing => _isSyncing;
   String? get statusMessage => _statusMessage;
@@ -45,6 +46,29 @@ class SyncController extends ChangeNotifier {
   String get localDeviceId => _localDeviceId;
   String get localDeviceName => _localDeviceName;
   SyncEngine get engine => _engine;
+
+  /// Check if a specific device is reachable on the local network or was seen recently.
+  bool isDeviceOnline(Device device) {
+    if (!device.trusted) return false;
+    if (_discoveredPeers.any((p) => p.id == device.id)) return true;
+    if (device.lastSeen != null) {
+      final diff = DateTime.now().difference(device.lastSeen!);
+      if (diff.inSeconds <= 90) return true;
+    }
+    return false;
+  }
+
+  /// Whether any trusted paired peer is online and connected.
+  bool get hasConnectedDevice => _devices.any(isDeviceOnline);
+
+  /// Count of online connected paired peers.
+  int get connectedDeviceCount => _devices.where(isDeviceOnline).length;
+
+  /// Name of primary connected peer, if any.
+  String? get connectedDeviceName {
+    final online = _devices.where(isDeviceOnline).firstOrNull;
+    return online?.name;
+  }
 
   Future<void> init() async {
     _localDeviceId = await _deviceRepo.getLocalDeviceId();
