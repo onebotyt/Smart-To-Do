@@ -489,7 +489,18 @@ class _FloatingTaskPanelState extends State<FloatingTaskPanel> {
   }
   Widget _buildJarvisHud(BuildContext context, SkyController sky, List<Task> allTasks) {
     final theme = Theme.of(context);
+    final syncCtrl = context.watch<SyncController?>();
     final spokenText = sky.lastSpokenText ?? sky.generateBriefing(allTasks);
+
+    // Determine hardware acceleration badge
+    final isWindows = Platform.isWindows;
+    final hasConnectedPeer = syncCtrl?.hasConnectedDevice ?? false;
+    final String hwLabel = isWindows
+        ? '⚡ RTX 2050 (4 GB)'
+        : (hasConnectedPeer ? '⚡ P2P GPU Active' : '🛡️ Local AI Mode');
+    final Color hwColor = isWindows || hasConnectedPeer
+        ? const Color(0xFF10B981)
+        : Colors.cyan;
 
     return Container(
       margin: const EdgeInsets.fromLTRB(10, 6, 10, 2),
@@ -521,39 +532,76 @@ class _FloatingTaskPanelState extends State<FloatingTaskPanel> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+              const SizedBox(width: 6),
+              // Voice mute/unmute toggle
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: Icon(
+                  sky.isVoiceOutputEnabled ? Icons.volume_up : Icons.volume_off,
+                  size: 16,
+                  color: sky.isVoiceOutputEnabled ? theme.colorScheme.primary : Colors.grey,
+                ),
+                tooltip: sky.isVoiceOutputEnabled ? 'Voice enabled' : 'Voice muted',
+                onPressed: () {
+                  sky.isVoiceOutputEnabled = !sky.isVoiceOutputEnabled;
+                  (context as Element).markNeedsBuild();
+                },
+              ),
             ],
           ),
           const SizedBox(height: 6),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                ActionChip(
-                  visualDensity: VisualDensity.compact,
-                  avatar: const Icon(Icons.record_voice_over_outlined, size: 14),
-                  label: const Text('Briefing', style: TextStyle(fontSize: 11)),
-                  onPressed: () {
-                    sky.speakBriefing(sky.generateBriefing(allTasks));
-                  },
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      ActionChip(
+                        visualDensity: VisualDensity.compact,
+                        avatar: const Icon(Icons.record_voice_over_outlined, size: 14),
+                        label: const Text('Briefing', style: TextStyle(fontSize: 11)),
+                        onPressed: () {
+                          sky.speakBriefing(sky.generateBriefing(allTasks));
+                        },
+                      ),
+                      const SizedBox(width: 6),
+                      ActionChip(
+                        visualDensity: VisualDensity.compact,
+                        avatar: const Icon(Icons.bolt, size: 14, color: Colors.amber),
+                        label: const Text('Next Task', style: TextStyle(fontSize: 11)),
+                        onPressed: () {
+                          sky.speakBriefing(sky.recommendNextAction(allTasks));
+                        },
+                      ),
+                      const SizedBox(width: 6),
+                      ActionChip(
+                        visualDensity: VisualDensity.compact,
+                        avatar: const Icon(Icons.mic, size: 14, color: Color(0xFF6366F1)),
+                        label: const Text('Command', style: TextStyle(fontSize: 11)),
+                        onPressed: () => _showAskSkyDialog(context, sky),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(width: 6),
-                ActionChip(
-                  visualDensity: VisualDensity.compact,
-                  avatar: const Icon(Icons.bolt, size: 14, color: Colors.amber),
-                  label: const Text('Next Task', style: TextStyle(fontSize: 11)),
-                  onPressed: () {
-                    sky.speakBriefing(sky.recommendNextAction(allTasks));
-                  },
+              ),
+              Container(
+                margin: const EdgeInsets.only(left: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: hwColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: hwColor.withValues(alpha: 0.3)),
                 ),
-                const SizedBox(width: 6),
-                ActionChip(
-                  visualDensity: VisualDensity.compact,
-                  avatar: const Icon(Icons.chat_bubble_outline, size: 14, color: Color(0xFF6366F1)),
-                  label: const Text('Ask Sky', style: TextStyle(fontSize: 11)),
-                  onPressed: () => _showAskSkyDialog(context, sky),
+                child: Text(
+                  hwLabel,
+                  style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: hwColor),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
