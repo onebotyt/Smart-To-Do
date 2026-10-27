@@ -9,6 +9,7 @@ import '../../platform/window_service.dart';
 import '../settings/settings_controller.dart';
 import '../sky/sky_controller.dart';
 import '../sky/widgets/sky_mascot_widget.dart';
+import '../../platform/voice_service.dart';
 
 class FloatingTaskPanel extends StatefulWidget {
   final VoidCallback? onClose;
@@ -68,6 +69,9 @@ class _FloatingTaskPanelState extends State<FloatingTaskPanel> {
         : allTasks;
     final pendingCount = allTasks.where((t) => !t.completed).length;
 
+        if (sky != null && sky.syncController != syncController) {
+      sky.attachSyncController(syncController);
+    }
     final theme = Theme.of(context);
 
     return Material(
@@ -494,10 +498,13 @@ class _FloatingTaskPanelState extends State<FloatingTaskPanel> {
 
     // Determine hardware acceleration badge
     final isWindows = Platform.isWindows;
-    final hasConnectedPeer = syncCtrl?.hasConnectedDevice ?? false;
+    final gpuPeer = syncCtrl?.discoveredPeers.where((p) => p.hasGpu || p.platform == 'windows').firstOrNull;
+    final hasConnectedPeer = gpuPeer != null || (syncCtrl?.hasConnectedDevice ?? false);
     final String hwLabel = isWindows
         ? '⚡ RTX 2050 (4 GB)'
-        : (hasConnectedPeer ? '⚡ P2P GPU Active' : '🛡️ Local AI Mode');
+        : (gpuPeer != null
+            ? '⚡ RTX 2050 (${gpuPeer.name})'
+            : (hasConnectedPeer ? '⚡ P2P GPU Active' : '🛡️ Local AI Mode'));
     final Color hwColor = isWindows || hasConnectedPeer
         ? const Color(0xFF10B981)
         : Colors.cyan;
@@ -582,7 +589,7 @@ class _FloatingTaskPanelState extends State<FloatingTaskPanel> {
                         visualDensity: VisualDensity.compact,
                         avatar: const Icon(Icons.mic, size: 14, color: Color(0xFF6366F1)),
                         label: const Text('Command', style: TextStyle(fontSize: 11)),
-                        onPressed: () => _showAskSkyDialog(context, sky),
+                        onPressed: () => _handleVoiceOrCommand(context, sky),
                       ),
                     ],
                   ),
@@ -608,6 +615,23 @@ class _FloatingTaskPanelState extends State<FloatingTaskPanel> {
     );
   }
 
+  Future<void> _handleVoiceOrCommand(BuildContext context, SkyController sky) async {
+    if (Platform.isAndroid) {
+      final voiceService = sky.voiceService ?? NativeVoiceService.instance;
+      sky.setMood(SkyMascotMood.listening);
+      final spoken = await voiceService.startListening();
+      if (spoken != null && spoken.isNotEmpty) {
+        if (!context.mounted) return;
+        final syncCtrl = context.read<SyncController?>();
+        sky.ask(spoken, syncEngine: syncCtrl?.engine);
+        return;
+      }
+    }
+    if (context.mounted) {
+      _showAskSkyDialog(context, sky);
+    }
+  }
+
   void _showAskSkyDialog(BuildContext context, SkyController sky) {
     final askCtrl = TextEditingController();
     showDialog(
@@ -623,9 +647,21 @@ class _FloatingTaskPanelState extends State<FloatingTaskPanel> {
         content: TextField(
           controller: askCtrl,
           autofocus: true,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             hintText: 'e.g. What tasks should I prioritize today?',
-            border: OutlineInputBorder(),
+            border: const OutlineInputBorder(),
+            suffixIcon: IconButton(
+              icon: const Icon(Icons.mic, size: 20, color: Color(0xFF6366F1)),
+              tooltip: 'Speak Voice Command',
+              onPressed: () async {
+                final voiceService = sky.voiceService ?? NativeVoiceService.instance;
+                sky.setMood(SkyMascotMood.listening);
+                final spoken = await voiceService.startListening();
+                if (spoken != null && spoken.isNotEmpty) {
+                  askCtrl.text = spoken;
+                }
+              },
+            ),
           ),
           onSubmitted: (val) {
             if (val.trim().isNotEmpty) {

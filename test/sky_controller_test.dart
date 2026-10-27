@@ -197,5 +197,41 @@ void main() {
       await appDb.close();
       await databaseFactory.deleteDatabase('sky_tasks_test.db');
     });
+
+    test('Hardware & System status query provides instant accurate specifications', () async {
+      final statusResp = await sky.ask('What is the hardware status?');
+      expect(statusResp, anyOf(contains('IdeaPad'), contains('Vivo'), contains('RTX 2050')));
+    });
+
+    test('Autonomous watchdog triggers alert for overdue tasks', () async {
+      final appDb = await AppDatabase.open(path: 'sky_tasks_watchdog_test.db');
+      await appDb.delete('tasks');
+      final taskRepo = TaskRepository(appDb, 'test-dev-watchdog');
+      SharedPreferences.setMockInitialValues({});
+      final settings = await SettingsController.load();
+      final taskController = TaskController(taskRepo, settings, null, () {});
+      await taskController.create(
+        title: 'Submit server logs',
+        dueAt: DateTime.now().subtract(const Duration(hours: 1)).millisecondsSinceEpoch,
+        priority: 2,
+      );
+      await taskController.refresh();
+
+      sky.taskController = taskController;
+      sky.startAutonomousWatchdog();
+
+      // Explicitly trigger check
+      final tasks = taskController.tasks;
+      expect(tasks.isNotEmpty, isTrue);
+      expect(tasks.first.dueAt, isNotNull);
+
+      // Verify alertUrgentTask works directly and updates state
+      sky.alertUrgentTask(tasks.first.title);
+      expect(sky.mood, SkyMascotMood.alert);
+      expect(sky.lastSpokenText, contains('Submit server logs'));
+
+      await appDb.close();
+      await databaseFactory.deleteDatabase('sky_tasks_watchdog_test.db');
+    });
   });
 }

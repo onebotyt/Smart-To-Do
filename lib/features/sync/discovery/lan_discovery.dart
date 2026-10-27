@@ -8,6 +8,8 @@ class DiscoveredPeer {
   final String ipAddress;
   final int port;
   final DateTime lastSeen;
+  final String? platform;
+  final bool hasGpu;
 
   const DiscoveredPeer({
     required this.id,
@@ -15,6 +17,8 @@ class DiscoveredPeer {
     required this.ipAddress,
     required this.port,
     required this.lastSeen,
+    this.platform,
+    this.hasGpu = false,
   });
 
   @override
@@ -104,6 +108,8 @@ class LanDiscovery {
         'name': _localDeviceName,
         'tcp_port': _localTcpPort,
         'ts': DateTime.now().millisecondsSinceEpoch,
+        'platform': Platform.operatingSystem,
+        'has_gpu': Platform.isWindows,
       });
 
       final bytes = utf8.encode(payload);
@@ -127,6 +133,8 @@ class LanDiscovery {
         final peerId = map['id'] as String?;
         final peerName = map['name'] as String? ?? 'SyncTask Device';
         final peerPort = (map['tcp_port'] as int?) ?? 43884;
+        final peerPlatform = map['platform'] as String?;
+        final peerHasGpu = (map['has_gpu'] as bool?) ?? (peerPlatform == 'windows');
 
         // Ignore our own beacon
         if (peerId == null || peerId == _localDeviceId) return;
@@ -137,6 +145,8 @@ class LanDiscovery {
           ipAddress: datagram.address.address,
           port: peerPort,
           lastSeen: DateTime.now(),
+          platform: peerPlatform,
+          hasGpu: peerHasGpu,
         );
 
         _peers[peerId] = peer;

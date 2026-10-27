@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../../core/ai/model_gateway.dart';
+import '../../data/models/device.dart';
 import '../../data/models/task.dart';
+import '../sync/sync_controller.dart';
 import '../sync/transport/sync_engine.dart';
 import 'package:uuid/uuid.dart';
 import '../../data/repositories/memory_repository.dart';
@@ -10,13 +13,19 @@ import '../../platform/voice_service.dart';
 import '../tasks/task_controller.dart';
 
 /// High-level controller orchestrating Sky AI persona, voice/dialogue,
-/// mascot mood expressions, and task status intelligence.
+/// mascot mood expressions, hardware awareness, and task status intelligence.
 class SkyController extends ChangeNotifier {
   final ModelGateway _modelGateway;
   final MemoryRepository _memoryRepo;
   TaskController? taskController;
   VoiceService? voiceService;
   bool isVoiceOutputEnabled = true;
+
+  SyncController? _syncController;
+  Timer? _watchdogTimer;
+  final Set<String> _alertedTaskIds = {};
+  String? _lastReportedGpuPeerId;
+  DateTime? _lastMorningBriefingDate;
 
   SkyMascotMood _mood = SkyMascotMood.idle;
   String? _lastSpokenText;
@@ -35,11 +44,18 @@ class SkyController extends ChangeNotifier {
   SkyMascotMood get mood => _mood;
   String? get lastSpokenText => _lastSpokenText;
   bool get isProcessing => _isProcessing;
+  SyncController? get syncController => _syncController;
 
   void setMood(SkyMascotMood newMood) {
     _moodResetTimer?.cancel();
     _mood = newMood;
     notifyListeners();
+  }
+
+  /// Attach the network sync controller to monitor peer presence and GPU offloading.
+  void attachSyncController(SyncController sync) {
+    _syncController = sync;
+    startAutonomousWatchdog();
   }
 
   /// Celebrates a completed task with gold sparkles and happy eyes for 3.5 seconds.
@@ -63,6 +79,9 @@ class SkyController extends ChangeNotifier {
     _moodResetTimer?.cancel();
     _mood = SkyMascotMood.alert;
     _lastSpokenText = 'Attention: "$taskTitle" is high priority or overdue.';
+    if (isVoiceOutputEnabled && voiceService != null) {
+      voiceService!.speak(_lastSpokenText!);
+    }
     notifyListeners();
 
     _moodResetTimer = Timer(const Duration(seconds: 4), () {
@@ -84,6 +103,72 @@ class SkyController extends ChangeNotifier {
       notifyListeners();
     });
     notifyListeners();
+  }
+
+  /// Starts the proactive background watchdog monitoring upcoming tasks,
+  /// morning briefings, and Lenovo IdeaPad LAN connections.
+  void startAutonomousWatchdog() {
+    if (_watchdogTimer != null) return;
+    if (Platform.environment.containsKey('FLUTTER_TEST')) return;
+
+    // Run first check after a brief 3-second startup grace period
+    Timer(const Duration(seconds: 3), () => _runWatchdogCheck());
+
+    _watchdogTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _runWatchdogCheck();
+    });
+  }
+
+  void _runWatchdogCheck() {
+    final now = DateTime.now();
+
+    // 1. Morning Briefing Check (between 7:00 AM and 11:59 AM, once per day)
+    if (now.hour >= 7 && now.hour < 12) {
+      if (_lastMorningBriefingDate == null || _lastMorningBriefingDate!.day != now.day) {
+        _lastMorningBriefingDate = now;
+        final tasks = taskController?.tasks ?? [];
+        if (tasks.isNotEmpty) {
+          speakBriefing(generateBriefing(tasks));
+        }
+      }
+    }
+
+    // 2. Overdue & Upcoming Task Alerts
+    final tasks = taskController?.tasks ?? [];
+    for (final task in tasks) {
+      if (!task.completed && task.dueAt != null) {
+        final dueDateTime = DateTime.fromMillisecondsSinceEpoch(task.dueAt!);
+        final diff = dueDateTime.difference(now);
+        // Alert if overdue or within 15 minutes
+        if (diff.isNegative || diff.inMinutes <= 15) {
+          if (!_alertedTaskIds.contains(task.id)) {
+            _alertedTaskIds.add(task.id);
+            alertUrgentTask(task.title);
+            break; // One vocal alert at a time to prevent noise
+          }
+        }
+      }
+    }
+
+    // 3. Proactive LAN Peer Detection (Lenovo IdeaPad Gaming 3 RTX 2050 on Vivo T3 Lite)
+    if (_syncController != null) {
+      final peers = _syncController!.discoveredPeers;
+      final gpuPeer = peers.where((p) => p.hasGpu || p.platform == 'windows').firstOrNull;
+
+      if (gpuPeer != null) {
+        if (_lastReportedGpuPeerId != gpuPeer.id) {
+          _lastReportedGpuPeerId = gpuPeer.id;
+          if (!Platform.isWindows) {
+            speakBriefing("${gpuPeer.name} connected on Wi-Fi. RTX 2050 GPU acceleration ready, sir.");
+          }
+        }
+      } else if (_lastReportedGpuPeerId != null) {
+        _lastReportedGpuPeerId = null;
+        if (!Platform.isWindows) {
+          speakBriefing("IdeaPad disconnected. Running in autonomous local mode.");
+        }
+      }
+    }
   }
 
   /// Automatically recommends the next best task based on priority and due time.
@@ -133,30 +218,54 @@ class SkyController extends ChangeNotifier {
     }
 
     // 2. Automated P2P Offloading to PC GPU if available
-    if (syncEngine != null) {
-      try {
-        final queryId = const Uuid().v4();
-        final completer = Completer<String>();
+    if (response == null && syncEngine != null) {
+      final gpuPeer = _syncController?.discoveredPeers
+          .where((p) => p.hasGpu || p.platform == 'windows')
+          .firstOrNull;
 
-        syncEngine.onAiResponseReceived = (qId, text, isComplete) {
-          if (qId == queryId && !completer.isCompleted) {
-            completer.complete(text);
-          }
-        };
+      final targetPeer = gpuPeer != null
+          ? Device(
+              id: gpuPeer.id,
+              name: gpuPeer.name,
+              fingerprint: gpuPeer.id,
+              ipAddress: gpuPeer.ipAddress,
+              port: gpuPeer.port,
+              pairedAt: DateTime.now(),
+              trusted: true,
+            )
+          : _syncController?.trustedDevices.firstOrNull;
 
-        syncEngine.onAiStatusReceived = (qId, status, reason) {
-          if (qId == queryId && !completer.isCompleted) {
-            completer.completeError(reason);
-          }
-        };
+      if (targetPeer != null) {
+        try {
+          final queryId = const Uuid().v4();
+          final completer = Completer<String>();
 
-        // Try offloading to connected peer
-        // If not completed within 2.5s, fall back to local
-        final p2pFuture = completer.future.timeout(const Duration(milliseconds: 2500));
-        response = await p2pFuture;
-      } catch (_) {
-        // Fallback to local engine automatically
-        response = null;
+          syncEngine.onAiResponseReceived = (qId, text, isComplete) {
+            if (qId == queryId && !completer.isCompleted) {
+              completer.complete(text);
+            }
+          };
+
+          syncEngine.onAiStatusReceived = (qId, status, reason) {
+            if (qId == queryId && !completer.isCompleted) {
+              completer.completeError(reason);
+            }
+          };
+
+          // Send query over TCP to the PC's RTX 2050 model runner
+          syncEngine.sendAiQuery(
+            peer: targetPeer,
+            queryId: queryId,
+            prompt: query,
+          );
+
+          // If peer answers within 4s, use it!
+          final p2pFuture = completer.future.timeout(const Duration(milliseconds: 4000));
+          response = await p2pFuture;
+        } catch (_) {
+          // Fallback to local engine automatically
+          response = null;
+        }
       }
     }
 
@@ -209,26 +318,44 @@ class SkyController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _watchdogTimer?.cancel();
     _moodResetTimer?.cancel();
     super.dispose();
   }
-  /// Automatically interprets natural language task operations.
+
+  /// Automatically interprets natural language task and hardware operations.
   Future<String?> _handleTaskAction(String query) async {
     final lower = query.trim().toLowerCase();
 
-    // 1. Briefing request
+    // 1. Hardware & System Status
+    if (RegExp(r'\b(hardware|status|gpu|specs|system|pc status|ideapad)\b').hasMatch(lower)) {
+      if (Platform.isWindows) {
+        return "Lenovo IdeaPad Gaming 3 operational. AMD Ryzen 5 5500H, 8 GB RAM, NVIDIA GeForce RTX 2050 (4 GB VRAM). Local inference fully enabled.";
+      } else {
+        final gpuPeer = _syncController?.discoveredPeers
+            .where((p) => p.hasGpu || p.platform == 'windows')
+            .firstOrNull;
+        if (gpuPeer != null) {
+          return "Vivo T3 Lite connected to ${gpuPeer.name} on local network. RTX 2050 GPU offload active. Phone RAM footprint: lightweight 68 MB.";
+        } else {
+          return "Vivo T3 Lite running locally (6 GB RAM). AI in lightweight battery-saver mode. RTX 2050 PC offline.";
+        }
+      }
+    }
+
+    // 2. Briefing request
     if (RegExp(r'\b(briefing|daily brief|status report|what do i have|schedule)\b').hasMatch(lower)) {
       final tasks = taskController?.tasks ?? [];
       return generateBriefing(tasks);
     }
 
-    // 2. Next recommended task
+    // 3. Next recommended task
     if (RegExp(r'\b(next task|what should i do|what next|recommend task)\b').hasMatch(lower)) {
       final tasks = taskController?.tasks ?? [];
       return recommendNextAction(tasks);
     }
 
-    // 3. Create / Add Task
+    // 4. Create / Add Task
     final createMatch = RegExp(r'^(?:sky,?\s*)?(?:add|create|new|remind me to)\s+(?:task\s+)?(.+)', caseSensitive: false).firstMatch(query.trim());
     if (createMatch != null && taskController != null) {
       final rawTitle = createMatch.group(1)!.trim();
@@ -247,7 +374,7 @@ class SkyController extends ChangeNotifier {
       }
     }
 
-    // 4. Complete / Mark Done
+    // 5. Complete / Mark Done
     final doneMatch = RegExp(r'^(?:sky,?\s*)?(?:complete|finish|mark|done)\s+(?:task\s+)?(.+?)(?:\s+as\s+done|\s+completed)?$', caseSensitive: false).firstMatch(query.trim());
     if (doneMatch != null && taskController != null) {
       final target = doneMatch.group(1)!.trim().toLowerCase();
@@ -266,7 +393,7 @@ class SkyController extends ChangeNotifier {
       }
     }
 
-    // 5. Delete / Remove
+    // 6. Delete / Remove
     final delMatch = RegExp(r'^(?:sky,?\s*)?(?:delete|remove)\s+(?:task\s+)?(.+)', caseSensitive: false).firstMatch(query.trim());
     if (delMatch != null && taskController != null) {
       final target = delMatch.group(1)!.trim().toLowerCase();

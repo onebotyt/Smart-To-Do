@@ -12,6 +12,10 @@ import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import android.speech.RecognizerIntent
+import android.speech.tts.TextToSpeech
+import java.util.Locale
+
 import java.io.File
 
 class MainActivity : FlutterActivity() {
@@ -20,6 +24,12 @@ class MainActivity : FlutterActivity() {
     private val INSTALLER_CHANNEL = "com.synctask/installer"
     private val SETTINGS_CHANNEL = "com.synctask/native_settings"
     private val MEDIA_CHANNEL = "com.synctask/media_share"
+    private val VOICE_CHANNEL = "com.synctask/voice"
+    private val SPEECH_REQUEST_CODE = 4389
+    private var tts: TextToSpeech? = null
+    private var isTtsInitialized = false
+    private var pendingVoiceResult: MethodChannel.Result? = null
+
 
     private var multicastLock: WifiManager.MulticastLock? = null
     private var pendingAction: String? = null
@@ -29,6 +39,17 @@ class MainActivity : FlutterActivity() {
         if (intent?.getBooleanExtra("open_create_task", false) == true) {
             pendingAction = "create_task"
         }
+        try {
+            tts = TextToSpeech(applicationContext) { status ->
+                if (status == TextToSpeech.SUCCESS) {
+                    isTtsInitialized = true
+                    try {
+                        tts?.language = Locale.US
+                    } catch (_: Exception) {}
+                }
+            }
+        } catch (_: Exception) {}
+
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -36,6 +57,17 @@ class MainActivity : FlutterActivity() {
         if (intent.getBooleanExtra("open_create_task", false)) {
             pendingAction = "create_task"
         }
+        try {
+            tts = TextToSpeech(applicationContext) { status ->
+                if (status == TextToSpeech.SUCCESS) {
+                    isTtsInitialized = true
+                    try {
+                        tts?.language = Locale.US
+                    } catch (_: Exception) {}
+                }
+            }
+        } catch (_: Exception) {}
+
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -216,6 +248,39 @@ class MainActivity : FlutterActivity() {
             }
 
         // Native Media Sharing & Clipboard Image Channel
+        
+        // Native Voice Synthesis and Speech Recognition Channel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, VOICE_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "speak" -> {
+                        val text = call.argument<String>("text") ?: ""
+                        if (text.isNotEmpty() && isTtsInitialized) {
+                            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "sky_voice_${System.currentTimeMillis()}")
+                        }
+                        result.success(true)
+                    }
+                    "stop" -> {
+                        tts?.stop()
+                        result.success(true)
+                    }
+                    "startListening" -> {
+                        try {
+                            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+                                putExtra(RecognizerIntent.EXTRA_PROMPT, "Ask Sky AI anything...")
+                            }
+                            pendingVoiceResult = result
+                            startActivityForResult(intent, SPEECH_REQUEST_CODE)
+                        } catch (e: Exception) {
+                            result.success("")
+                        }
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, MEDIA_CHANNEL)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -284,7 +349,26 @@ class MainActivity : FlutterActivity() {
             }
     }
 
+    
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == SPEECH_REQUEST_CODE) {
+            if (resultCode == RESULT_OK && data != null) {
+                val matches = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                val spokenText = matches?.firstOrNull() ?: ""
+                pendingVoiceResult?.success(spokenText)
+            } else {
+                pendingVoiceResult?.success("")
+            }
+            pendingVoiceResult = null
+        }
+    }
+
     override fun onDestroy() {
+        try {
+            tts?.stop()
+            tts?.shutdown()
+        } catch (_: Exception) {}
         try {
             multicastLock?.let {
                 if (it.isHeld) {
