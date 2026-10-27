@@ -2,18 +2,18 @@ import 'dart:io';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
-Directory? _testSaveDirectory;
+Directory? _customSaveDirectory;
 
-void setMediaSaveDirectoryForTesting(Directory? dir) {
-  _testSaveDirectory = dir;
+void setCustomMediaSaveDirectory(Directory? dir) {
+  _customSaveDirectory = dir;
 }
 
 Future<Directory> getMediaSaveDirectory() async {
-  if (_testSaveDirectory != null) {
-    if (!_testSaveDirectory!.existsSync()) {
-      _testSaveDirectory!.createSync(recursive: true);
+  if (_customSaveDirectory != null) {
+    if (!_customSaveDirectory!.existsSync()) {
+      _customSaveDirectory!.createSync(recursive: true);
     }
-    return _testSaveDirectory!;
+    return _customSaveDirectory!;
   }
 
   Directory? baseDir;

@@ -161,6 +161,7 @@ bool FlutterWindow::OnCreate() {
   }
   RegisterPlugins(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
+  RegisterApplicationRestart(L"", 0);
 
   // Window Management Channel
   window_channel_ =
@@ -385,11 +386,11 @@ bool FlutterWindow::OnCreate() {
         // Official Inno Setup installer execution: completely silent, no console window
         SHELLEXECUTEINFOW sei = { sizeof(sei) };
         sei.cbSize = sizeof(sei);
-        sei.fMask = SEE_MASK_FLAG_NO_UI | SEE_MASK_NOZONECHECKS;
+        sei.fMask = SEE_MASK_NOZONECHECKS;
         sei.lpVerb = L"open";
         sei.lpFile = wInstallerPath.c_str();
-        sei.lpParameters = L"/VERYSILENT /SUPPRESSMSGBOXES /FORCECLOSEAPPLICATIONS";
-        sei.nShow = SW_HIDE;
+        sei.lpParameters = L"/SILENT /SP- /SUPPRESSMSGBOXES /FORCECLOSEAPPLICATIONS /RESTARTAPPLICATIONS";
+        sei.nShow = SW_SHOWNORMAL;
 
         if (ShellExecuteExW(&sei)) {
           result->Success(flutter::EncodableValue(true));

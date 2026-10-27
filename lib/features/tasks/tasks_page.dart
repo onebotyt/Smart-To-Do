@@ -8,6 +8,7 @@ import '../../platform/floating_panel_service.dart';
 import '../../platform/update_service.dart';
 import '../../platform/window_service.dart';
 import '../floating_panel/floating_task_panel.dart';
+import '../media_transfer/media_sharing_page.dart';
 import '../media_transfer/task_attachment_helper.dart';
 import '../settings/settings_controller.dart';
 import '../settings/settings_page.dart';
@@ -219,6 +220,14 @@ class _TasksPageState extends State<TasksPage> {
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const DevicesPage()),
+            ),
+          ),
+          _HeaderActionButton(
+            icon: Icons.swap_horizontal_circle_outlined,
+            tooltip: 'Media & File Sharing',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const MediaSharingPage()),
             ),
           ),
           _HeaderActionButton(

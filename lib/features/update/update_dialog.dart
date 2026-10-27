@@ -237,7 +237,7 @@ class _UpdateDownloadDialogState extends State<UpdateDownloadDialog>
         if (!isZip) {
           await Process.start(
             installerPath,
-            ['/VERYSILENT', '/SUPPRESSMSGBOXES', '/FORCECLOSEAPPLICATIONS', '/NORESTART'],
+            ['/SILENT', '/SP-', '/SUPPRESSMSGBOXES', '/FORCECLOSEAPPLICATIONS', '/RESTARTAPPLICATIONS'],
             mode: ProcessStartMode.detached,
           );
           exit(0);

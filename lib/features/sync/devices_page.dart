@@ -11,7 +11,7 @@ import 'package:synctask/features/sync/discovery/lan_discovery.dart';
 import 'package:synctask/features/sync/qr_scan_page.dart';
 import 'package:synctask/features/sync/sync_controller.dart';
 import 'package:synctask/features/media_transfer/media_transfer_controller.dart';
-import 'package:synctask/features/media_transfer/widgets/media_transfer_widget.dart';
+import 'package:synctask/features/media_transfer/media_sharing_page.dart';
 import 'package:synctask/features/sync/transport/sync_engine.dart';
 import 'package:synctask/features/tasks/task_controller.dart';
 import 'package:synctask/platform/native_network_service.dart';
@@ -310,10 +310,16 @@ class _DevicesPageState extends State<DevicesPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (Platform.isAndroid || Platform.isIOS)
-                    FilledButton.tonalIcon(
+                    FilledButton.icon(
                       icon: const Icon(Icons.qr_code_scanner, size: 18),
-                      label: const Text('Scan QR'),
+                      label: const Text('Scan PC QR Code'),
                       onPressed: () => _openQrScanner(context, sync),
+                    )
+                  else
+                    FilledButton.icon(
+                      icon: const Icon(Icons.qr_code, size: 18),
+                      label: const Text('Pair Phone (Show QR)'),
+                      onPressed: () => _showPairingCodeModal(context, sync),
                     ),
                   const SizedBox(width: 6),
                   TextButton.icon(
@@ -374,13 +380,28 @@ class _DevicesPageState extends State<DevicesPage> {
                     ),
                     const SizedBox(height: 16),
                     FilledButton.icon(
-                      icon: const Icon(Icons.add_link, size: 18),
-                      label: const Text('Pair a Device Now'),
-                      onPressed: () => _showPairingCodeModal(
-                        context,
-                        sync,
-                        initialMethod: ConnectionMethodType.wifi,
+                      icon: Icon(
+                        Platform.isAndroid || Platform.isIOS
+                            ? Icons.qr_code_scanner
+                            : Icons.qr_code,
+                        size: 18,
                       ),
+                      label: Text(
+                        Platform.isAndroid || Platform.isIOS
+                            ? 'Scan PC QR Code'
+                            : 'Pair Phone (Show QR Code)',
+                      ),
+                      onPressed: () {
+                        if (Platform.isAndroid || Platform.isIOS) {
+                          _openQrScanner(context, sync);
+                        } else {
+                          _showPairingCodeModal(
+                            context,
+                            sync,
+                            initialMethod: ConnectionMethodType.wifi,
+                          );
+                        }
+                      },
                     ),
                   ],
                 ),
@@ -392,8 +413,51 @@ class _DevicesPageState extends State<DevicesPage> {
             ),
           const SizedBox(height: 16),
 
-          // Direct P2P Media & File Share Section
-          const MediaTransferSection(),
+          // Direct P2P Media & File Share Entry Card
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(
+                color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.6),
+              ),
+            ),
+            child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.swap_horizontal_circle_outlined,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 22,
+                ),
+              ),
+              title: const Text(
+                'Media & File Sharing',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+              subtitle: const Text(
+                'Send photos, videos, and documents peer-to-peer',
+                style: TextStyle(fontSize: 12),
+              ),
+              trailing: FilledButton.tonalIcon(
+                icon: const Icon(Icons.arrow_forward, size: 16),
+                label: const Text('Open'),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MediaSharingPage()),
+                ),
+              ),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const MediaSharingPage()),
+              ),
+            ),
+          ),
           const SizedBox(height: 16),
 
           // Connection Methods Hub (All Different Methods)
@@ -467,10 +531,18 @@ class _DevicesPageState extends State<DevicesPage> {
                     ),
                   ],
                 ),
-                FilledButton.tonal(
-                  onPressed: () => _showPairingCodeModal(context, sync),
-                  child: const Text('Show Pairing Code'),
-                ),
+                if (Platform.isAndroid || Platform.isIOS)
+                  FilledButton.icon(
+                    icon: const Icon(Icons.qr_code_scanner, size: 18),
+                    label: const Text('Scan PC QR Code'),
+                    onPressed: () => _openQrScanner(context, sync),
+                  )
+                else
+                  FilledButton.icon(
+                    icon: const Icon(Icons.qr_code, size: 18),
+                    label: const Text('Show Pairing Code'),
+                    onPressed: () => _showPairingCodeModal(context, sync),
+                  ),
               ],
             ),
             if (_detectedInterfaces.isNotEmpty) ...[
@@ -496,6 +568,7 @@ class _DevicesPageState extends State<DevicesPage> {
 
   Widget _buildConnectionMethodsSection(BuildContext context, SyncController sync) {
     final theme = Theme.of(context);
+    final isMobile = Platform.isAndroid || Platform.isIOS;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -504,13 +577,13 @@ class _DevicesPageState extends State<DevicesPage> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Connection Methods',
+              isMobile ? 'Connect with PC' : 'Pair Phone to this PC',
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
             Text(
-              'Choose how to connect',
+              isMobile ? 'Scan PC screen to pair' : 'Show QR code for phone to scan',
               style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
             ),
           ],
@@ -526,63 +599,95 @@ class _DevicesPageState extends State<DevicesPage> {
             crossAxisSpacing: 10,
           ),
           children: [
-            _buildMethodCard(
-              context: context,
-              icon: Icons.qr_code_scanner,
-              iconColor: Colors.deepPurple,
-              title: 'Scan QR Code',
-              subtitle: 'Point camera to pair instantly',
-              onTap: () {
-                if (Platform.isAndroid || Platform.isIOS) {
-                  _openQrScanner(context, sync);
-                } else {
-                  _showPairingCodeModal(
-                    context,
-                    sync,
-                    initialMethod: ConnectionMethodType.wifi,
-                  );
-                }
-              },
-            ),
-            _buildMethodCard(
-              context: context,
-              icon: Icons.wifi,
-              iconColor: Colors.blue,
-              title: 'Local Wi-Fi',
-              subtitle: 'Generate QR for Wi-Fi router sync',
-              onTap: () => _showPairingCodeModal(
-                context,
-                sync,
-                initialMethod: ConnectionMethodType.wifi,
+            if (isMobile) ...[
+              _buildMethodCard(
+                context: context,
+                icon: Icons.qr_code_scanner,
+                iconColor: Colors.deepPurple,
+                title: 'Scan PC QR Code',
+                subtitle: 'Point camera at PC screen to pair',
+                onTap: () => _openQrScanner(context, sync),
               ),
-              onSettingsTap: () => NativeNetworkService.openWifiSettings(),
-            ),
-            _buildMethodCard(
-              context: context,
-              icon: Icons.wifi_tethering,
-              iconColor: Colors.teal,
-              title: 'Mobile Hotspot',
-              subtitle: 'Generate QR for Hotspot (No router)',
-              onTap: () => _showPairingCodeModal(
-                context,
-                sync,
-                initialMethod: ConnectionMethodType.mobileHotspot,
+              _buildMethodCard(
+                context: context,
+                icon: Icons.wifi,
+                iconColor: Colors.blue,
+                title: 'Wi-Fi Network',
+                subtitle: 'Ensure phone & PC share same Wi-Fi',
+                onTap: () => _openQrScanner(context, sync),
+                onSettingsTap: () => NativeNetworkService.openWifiSettings(),
               ),
-              onSettingsTap: () => NativeNetworkService.openHotspotSettings(),
-            ),
-            _buildMethodCard(
-              context: context,
-              icon: Icons.bluetooth,
-              iconColor: Colors.indigo,
-              title: 'Bluetooth Link',
-              subtitle: 'Generate QR for Bluetooth tethering',
-              onTap: () => _showPairingCodeModal(
-                context,
-                sync,
-                initialMethod: ConnectionMethodType.bluetoothPan,
+              _buildMethodCard(
+                context: context,
+                icon: Icons.wifi_tethering,
+                iconColor: Colors.teal,
+                title: 'Mobile Hotspot',
+                subtitle: 'Direct Hotspot link (No router)',
+                onTap: () => _openQrScanner(context, sync),
+                onSettingsTap: () => NativeNetworkService.openHotspotSettings(),
               ),
-              onSettingsTap: () => NativeNetworkService.openBluetoothSettings(),
-            ),
+              _buildMethodCard(
+                context: context,
+                icon: Icons.bluetooth,
+                iconColor: Colors.indigo,
+                title: 'Bluetooth Link',
+                subtitle: 'Bluetooth tethering / PAN link',
+                onTap: () => _openQrScanner(context, sync),
+                onSettingsTap: () => NativeNetworkService.openBluetoothSettings(),
+              ),
+            ] else ...[
+              _buildMethodCard(
+                context: context,
+                icon: Icons.wifi,
+                iconColor: Colors.blue,
+                title: 'Local Wi-Fi QR',
+                subtitle: 'Show QR for Wi-Fi router sync',
+                onTap: () => _showPairingCodeModal(
+                  context,
+                  sync,
+                  initialMethod: ConnectionMethodType.wifi,
+                ),
+                onSettingsTap: () => NativeNetworkService.openWifiSettings(),
+              ),
+              _buildMethodCard(
+                context: context,
+                icon: Icons.wifi_tethering,
+                iconColor: Colors.teal,
+                title: 'Mobile Hotspot QR',
+                subtitle: 'Show QR for Hotspot (No router)',
+                onTap: () => _showPairingCodeModal(
+                  context,
+                  sync,
+                  initialMethod: ConnectionMethodType.mobileHotspot,
+                ),
+                onSettingsTap: () => NativeNetworkService.openHotspotSettings(),
+              ),
+              _buildMethodCard(
+                context: context,
+                icon: Icons.bluetooth,
+                iconColor: Colors.indigo,
+                title: 'Bluetooth Link QR',
+                subtitle: 'Show QR for Bluetooth tethering',
+                onTap: () => _showPairingCodeModal(
+                  context,
+                  sync,
+                  initialMethod: ConnectionMethodType.bluetoothPan,
+                ),
+                onSettingsTap: () => NativeNetworkService.openBluetoothSettings(),
+              ),
+              _buildMethodCard(
+                context: context,
+                icon: Icons.keyboard,
+                iconColor: Colors.deepPurple,
+                title: 'Manual PIN & Code',
+                subtitle: 'Display 6-digit confirmation code',
+                onTap: () => _showPairingCodeModal(
+                  context,
+                  sync,
+                  initialMethod: ConnectionMethodType.wifi,
+                ),
+              ),
+            ],
           ],
         ),
       ],
@@ -846,12 +951,15 @@ class _DevicesPageState extends State<DevicesPage> {
       final pin = result['pin'] as String;
       final name = result['name'] as String? ?? primaryIp;
 
-      // Candidate IPs: primary IP, followed by multi-network candidate IPs, and Hotspot/Bluetooth gateways
-      final candidateIps = <String>[primaryIp];
+      // Candidate IPs: prioritize valid LAN addresses, followed by gateways, discarding loopbacks
+      final candidateIps = <String>[];
+      if (primaryIp != '127.0.0.1' && !primaryIp.startsWith('127.')) {
+        candidateIps.add(primaryIp);
+      }
       if (result['ips'] is List) {
         for (final candidate in result['ips'] as List) {
           final s = candidate.toString();
-          if (!candidateIps.contains(s)) {
+          if (!candidateIps.contains(s) && s != '127.0.0.1' && !s.startsWith('127.')) {
             candidateIps.add(s);
           }
         }
@@ -859,6 +967,7 @@ class _DevicesPageState extends State<DevicesPage> {
       if (!candidateIps.contains('192.168.43.1')) candidateIps.add('192.168.43.1');
       if (!candidateIps.contains('192.168.137.1')) candidateIps.add('192.168.137.1');
       if (!candidateIps.contains('192.168.44.1')) candidateIps.add('192.168.44.1');
+      if (candidateIps.isEmpty) candidateIps.add(primaryIp);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -885,7 +994,7 @@ class _DevicesPageState extends State<DevicesPage> {
           host: host,
           port: port,
           pin: pin,
-          timeout: const Duration(milliseconds: 3200),
+          timeout: const Duration(milliseconds: 2200),
         );
         if (res.success) {
           finalRes = res;
@@ -1245,31 +1354,64 @@ class _PairingCodeContentState extends State<_PairingCodeContent> {
         ),
         const SizedBox(height: 8),
 
-        // 2. High-contrast QR Code Container
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black12,
-                blurRadius: 8,
-                offset: Offset(0, 4),
-              ),
-            ],
-          ),
-          child: SizedBox(
-            width: 170,
-            height: 170,
-            child: QrImageView(
-              data: qrPayload,
-              version: QrVersions.auto,
-              padding: EdgeInsets.zero,
+        // 2. High-contrast QR Code Container (PC) or Scanner Card (Phone)
+        if (Platform.isAndroid || Platform.isIOS) ...[
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              children: [
+                Icon(Icons.qr_code_scanner, size: 40, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(height: 10),
+                const Text(
+                  'Scan the QR Code on your PC',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'SyncTask on your PC displays the pairing QR code on the monitor. Point this phone\'s camera to pair.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                const SizedBox(height: 14),
+                FilledButton.icon(
+                  icon: const Icon(Icons.camera_alt, size: 18),
+                  label: const Text('Open QR Scanner'),
+                  onPressed: widget.onScanQr,
+                ),
+              ],
             ),
           ),
-        ),
-        const SizedBox(height: 12),
+          const SizedBox(height: 12),
+        ] else ...[
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black12,
+                  blurRadius: 8,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: SizedBox(
+              width: 170,
+              height: 170,
+              child: QrImageView(
+                data: qrPayload,
+                version: QrVersions.auto,
+                padding: EdgeInsets.zero,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
 
         // 3. 6-digit PIN Confirmation Badge
         const Text(
@@ -1347,19 +1489,7 @@ class _PairingCodeContentState extends State<_PairingCodeContent> {
         ),
         const SizedBox(height: 12),
 
-        // 5. Actions: Mobile QR Scan Camera & Manual Pair Link
-        if (Platform.isAndroid || Platform.isIOS)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: FilledButton.tonalIcon(
-              icon: const Icon(Icons.qr_code_scanner, size: 18),
-              label: const Text('Scan QR on Other Device'),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(38),
-              ),
-              onPressed: widget.onScanQr,
-            ),
-          ),
+        // 5. Actions: Manual Pair Link
         TextButton.icon(
           icon: const Icon(Icons.keyboard, size: 16),
           label: const Text('Pair Manually (Enter IP / PIN)', style: TextStyle(fontSize: 12)),

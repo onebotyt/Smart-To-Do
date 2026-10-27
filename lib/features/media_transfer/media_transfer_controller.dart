@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as path;
 import 'package:synctask/data/models/device.dart';
+import 'package:synctask/features/media_transfer/media_storage_helper.dart';
 import 'package:synctask/features/media_transfer/models/media_transfer.dart';
 import 'package:synctask/features/sync/transport/sync_engine.dart';
 import 'package:synctask/platform/window_service.dart';
@@ -96,7 +97,7 @@ class MediaTransferController extends ChangeNotifier {
     };
   }
 
-  Future<int> pickAndSendFiles(Device device) async {
+  Future<int> pickAndSendFiles(Device device, {FileType type = FileType.any}) async {
     if (device.ipAddress == null || device.ipAddress!.isEmpty) {
       onNotification?.call('Device IP is unknown. Ensure both devices are connected.', isError: true);
       return 0;
@@ -109,7 +110,7 @@ class MediaTransferController extends ChangeNotifier {
       }
 
       final files = await FilePicker.pickFiles(
-        type: FileType.any,
+        type: type,
       );
 
       if (files.isEmpty) {
@@ -205,6 +206,15 @@ class MediaTransferController extends ChangeNotifier {
   void removeTransfer(String id) {
     _transfers.removeWhere((t) => t.id == id);
     notifyListeners();
+  }
+
+  Future<void> openMediaFolder() async {
+    try {
+      final dir = await getMediaSaveDirectory();
+      await OpenFilex.open(dir.path);
+    } catch (e) {
+      onNotification?.call('Failed to open media directory: $e', isError: true);
+    }
   }
 
   void clearHistory() {

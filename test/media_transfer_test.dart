@@ -290,7 +290,7 @@ void main() {
     setUp(() async {
       tempDirA = Directory.systemTemp.createTempSync('media_p2p_a_');
       tempDirB = Directory.systemTemp.createTempSync('media_p2p_b_');
-      setMediaSaveDirectoryForTesting(tempDirB);
+      setCustomMediaSaveDirectory(tempDirB);
 
       dbA = await AppDatabase.open(path: '${tempDirA.path}/a.db');
       dbB = await AppDatabase.open(path: '${tempDirB.path}/b.db');
@@ -339,7 +339,7 @@ void main() {
     });
 
     tearDown(() async {
-      setMediaSaveDirectoryForTesting(null);
+      setCustomMediaSaveDirectory(null);
       controllerA.dispose();
       controllerB.dispose();
       await engineA.stop();
@@ -415,7 +415,7 @@ void main() {
     });
 
     test('getMediaSaveDirectory falls back gracefully to a valid writable directory', () async {
-      setMediaSaveDirectoryForTesting(null);
+      setCustomMediaSaveDirectory(null);
       final dir = await getMediaSaveDirectory();
       expect(dir.existsSync(), isTrue);
       expect(dir.path, isNotEmpty);
