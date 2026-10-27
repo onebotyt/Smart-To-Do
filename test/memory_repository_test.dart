@@ -7,7 +7,7 @@ import 'package:synctask/features/memory/memory_controller.dart';
 void main() {
   setUpAll(() {
     sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
+    databaseFactory = databaseFactoryFfiNoIsolate;
   });
 
   group('MemoryRepository & MemoryController Unit Tests', () {

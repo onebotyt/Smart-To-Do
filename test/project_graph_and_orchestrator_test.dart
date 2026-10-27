@@ -10,7 +10,7 @@ import 'package:synctask/features/sync/models/sync_message.dart';
 void main() {
   setUpAll(() {
     sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
+    databaseFactory = databaseFactoryFfiNoIsolate;
   });
 
   group('ProjectGraphService & AST Symbol Indexing Tests', () {
