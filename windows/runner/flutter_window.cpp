@@ -161,7 +161,15 @@ bool FlutterWindow::OnCreate() {
   }
   RegisterPlugins(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
-  RegisterApplicationRestart(L"", 0);
+  HMODULE hKernel32 = GetModuleHandleW(L"kernel32.dll");
+  if (hKernel32) {
+    typedef HRESULT (WINAPI *RegisterApplicationRestartFunc)(PCWSTR, DWORD);
+    auto pfnRegister = reinterpret_cast<RegisterApplicationRestartFunc>(
+        GetProcAddress(hKernel32, "RegisterApplicationRestart"));
+    if (pfnRegister) {
+      pfnRegister(L"", 0);
+    }
+  }
 
   // Window Management Channel
   window_channel_ =
@@ -376,23 +384,26 @@ bool FlutterWindow::OnCreate() {
       }
 
       int len = MultiByteToWideChar(CP_UTF8, 0, installer_path.c_str(), -1, nullptr, 0);
-      std::wstring wInstallerPath(len, 0);
-      MultiByteToWideChar(CP_UTF8, 0, installer_path.c_str(), -1, &wInstallerPath[0], len);
-      if (!wInstallerPath.empty() && wInstallerPath.back() == L'\0') {
-        wInstallerPath.pop_back();
+      std::wstring wInstallerPath;
+      if (len > 0) {
+        wInstallerPath.resize(static_cast<size_t>(len));
+        MultiByteToWideChar(CP_UTF8, 0, installer_path.c_str(), -1, &wInstallerPath[0], len);
+        if (!wInstallerPath.empty() && wInstallerPath.back() == L'\0') {
+          wInstallerPath.pop_back();
+        }
       }
 
       if (!is_zip) {
-        // Official Inno Setup installer execution: completely silent, no console window
-        SHELLEXECUTEINFOW sei = { sizeof(sei) };
-        sei.cbSize = sizeof(sei);
-        sei.fMask = SEE_MASK_NOZONECHECKS;
-        sei.lpVerb = L"open";
-        sei.lpFile = wInstallerPath.c_str();
-        sei.lpParameters = L"/SILENT /SP- /SUPPRESSMSGBOXES /FORCECLOSEAPPLICATIONS /RESTARTAPPLICATIONS";
-        sei.nShow = SW_SHOWNORMAL;
+        // Official Inno Setup installer execution: silent / non-intrusive setup
+        HINSTANCE hInst = ShellExecuteW(
+            nullptr,
+            L"open",
+            wInstallerPath.c_str(),
+            L"/SILENT /SP- /SUPPRESSMSGBOXES /FORCECLOSEAPPLICATIONS /RESTARTAPPLICATIONS",
+            nullptr,
+            SW_SHOWNORMAL);
 
-        if (ShellExecuteExW(&sei)) {
+        if (reinterpret_cast<INT_PTR>(hInst) > 32) {
           result->Success(flutter::EncodableValue(true));
           HWND hwnd = this->GetHandle();
           if (hwnd) {
@@ -402,7 +413,7 @@ bool FlutterWindow::OnCreate() {
           return;
         } else {
           DWORD err = GetLastError();
-          result->Error("INSTALL_FAILED", "ShellExecuteExW failed: " + std::to_string(err));
+          result->Error("INSTALL_FAILED", "ShellExecuteW failed: " + std::to_string(err));
           return;
         }
       } else {
@@ -417,11 +428,14 @@ bool FlutterWindow::OnCreate() {
         std::wstring cmd = L"powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -Command \"Start-Sleep -Seconds 1; Expand-Archive -Path '" +
                            wInstallerPath + L"' -DestinationPath '" + exeDir + L"' -Force; Start-Process '" + currentExe + L"'\"";
 
-        STARTUPINFOW si = { sizeof(si) };
+        STARTUPINFOW si;
+        ZeroMemory(&si, sizeof(si));
         si.cbSize = sizeof(si);
         si.dwFlags = STARTF_USESHOWWINDOW;
         si.wShowWindow = SW_HIDE;
-        PROCESS_INFORMATION pi = { 0 };
+
+        PROCESS_INFORMATION pi;
+        ZeroMemory(&pi, sizeof(pi));
 
         std::vector<wchar_t> cmdBuf(cmd.begin(), cmd.end());
         cmdBuf.push_back(0);
