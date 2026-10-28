@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -415,6 +416,81 @@ void main() {
       // Must fail fast within 3 seconds, not wait for 45s timeout
       expect(success, isFalse);
       expect(elapsed.inSeconds, lessThan(5));
+    });
+
+    test('Unpaired Quick Share: Streams media using QR session token without pairing', () async {
+      // 1. Untrust device B on engine B's repo so they are strictly UNPAIRED
+      final devAOnB = await deviceRepoB.getById(deviceIdA);
+      if (devAOnB != null) {
+        await deviceRepoB.save(devAOnB.copyWith(trusted: false));
+      }
+
+      // 2. Engine B generates an active Quick Share token (e.g. from shown QR code)
+      final token = engineB.generateQuickShareToken();
+      expect(engineB.validateQuickShareToken(token), isTrue);
+      expect(engineB.validateQuickShareToken('bad_token'), isFalse);
+
+      // 3. Prepare test media file
+      final sampleFile = File('${tempDirA.path}/quick_share_img.png');
+      final sampleBytes = List<int>.generate(80 * 1024, (i) => (i * 3) % 256);
+      await sampleFile.writeAsBytes(sampleBytes);
+
+      // 4. Device A sends file via Quick Share to Device B's listening port with session token
+      final transferCompleter = Completer<MediaTransferItem>();
+      final sub = controllerB.onMediaReceived.listen((item) {
+        if (!transferCompleter.isCompleted) {
+          transferCompleter.complete(item);
+        }
+      });
+
+      final success = await engineA.sendFileViaQuickShare(
+        host: '127.0.0.1',
+        port: engineB.actualPort!,
+        token: token,
+        targetDeviceName: 'Receiver Phone',
+        file: sampleFile,
+        transferId: 'qs-test-transfer-1',
+      );
+
+      expect(success, isTrue);
+
+      final receivedItem = await transferCompleter.future.timeout(
+        const Duration(seconds: 10),
+      );
+      await sub.cancel();
+
+      expect(receivedItem.fileName, 'quick_share_img.png');
+      expect(receivedItem.fileSize, sampleBytes.length);
+
+      final receivedFile = File(receivedItem.filePath);
+      expect(receivedFile.existsSync(), isTrue);
+      final receivedData = await receivedFile.readAsBytes();
+      expect(receivedData, equals(sampleBytes));
+
+      try { receivedFile.deleteSync(); } catch (_) {}
+    });
+
+    test('Unpaired Quick Share: Connection with invalid or expired token is rejected', () async {
+      // 1. Untrust device B on engine B's repo so they are strictly UNPAIRED
+      final devAOnB = await deviceRepoB.getById(deviceIdA);
+      if (devAOnB != null) {
+        await deviceRepoB.save(devAOnB.copyWith(trusted: false));
+      }
+
+      final sampleFile = File('${tempDirA.path}/secret_doc.pdf');
+      await sampleFile.writeAsString('Confidential');
+
+      final success = await engineA.sendFileViaQuickShare(
+        host: '127.0.0.1',
+        port: engineB.actualPort!,
+        token: 'invalid-expired-token-999',
+        targetDeviceName: 'Receiver Phone',
+        file: sampleFile,
+        transferId: 'qs-bad-token-1',
+      );
+
+      // Must be rejected
+      expect(success, isFalse);
     });
 
   });

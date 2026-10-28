@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'dart:convert';
 import 'dart:io';
 
@@ -98,6 +99,26 @@ class SyncEngine {
 
   bool get isListening => _isListening;
   int? get actualPort => _serverSocket?.port;
+  int get port => actualPort ?? listenPort;
+
+  final Map<String, DateTime> _activeQuickShareTokens = {};
+
+  String generateQuickShareToken() {
+    final token = 'qs_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(999999)}';
+    _activeQuickShareTokens[token] = DateTime.now().add(const Duration(minutes: 10));
+    return token;
+  }
+
+  bool validateQuickShareToken(String? token) {
+    if (token == null || token.isEmpty) return false;
+    final expiry = _activeQuickShareTokens[token];
+    if (expiry == null) return false;
+    if (DateTime.now().isAfter(expiry)) {
+      _activeQuickShareTokens.remove(token);
+      return false;
+    }
+    return true;
+  }
 
   /// Start the TCP sync server listener.
   Future<void> start() async {
@@ -405,22 +426,40 @@ class SyncEngine {
         }
 
         // For all other messages, verify device trust
-        final sender = await _deviceRepo.getById(msg.senderId);
+        Device? sender = await _deviceRepo.getById(msg.senderId);
+        final quickShareToken = msg.payload['quick_share_token'] as String?;
+        final isQuickShare = quickShareToken != null && validateQuickShareToken(quickShareToken);
+
         if (sender == null || !sender.trusted) {
-          _sendMsg(socket, SyncMessage.error(
-            senderId: await _deviceRepo.getLocalDeviceId(),
-            code: 'AUTH_FAILED',
-            message: 'Device is not paired or has been revoked',
-          ));
-          await socket.close();
-          return;
+          if (isQuickShare && (msg.type == SyncMessageType.fileMeta || msg.type == SyncMessageType.fileChunk)) {
+            sender = Device(
+              id: msg.senderId,
+              name: (msg.payload['sender_name'] as String?) ?? 'Quick Share Sender',
+              fingerprint: 'quickshare-${msg.senderId}',
+              pairedAt: DateTime.now(),
+              trusted: false,
+              lastSeen: DateTime.now(),
+              ipAddress: socket.remoteAddress.address,
+              port: socket.remotePort,
+            );
+          } else {
+            _sendMsg(socket, SyncMessage.error(
+              senderId: await _deviceRepo.getLocalDeviceId(),
+              code: 'AUTH_FAILED',
+              message: 'Device is not paired or has been revoked',
+            ));
+            await socket.close();
+            return;
+          }
         }
 
-        // Update peer network info
-        await _deviceRepo.updateLastSeen(
-          sender.id,
-          ipAddress: socket.remoteAddress.address,
-        );
+        if (sender.trusted) {
+          // Update peer network info
+          await _deviceRepo.updateLastSeen(
+            sender.id,
+            ipAddress: socket.remoteAddress.address,
+          );
+        }
 
         if (msg.type == SyncMessageType.hello) {
           final localDeviceId = await _deviceRepo.getLocalDeviceId();
@@ -863,6 +902,134 @@ class SyncEngine {
           AppLogger.warning('media', 'File transfer $transferId timed out waiting for peer acknowledgement');
           return false;
         },
+      );
+
+      await sub.cancel();
+      return success;
+    } finally {
+      try {
+        await socket.close();
+      } catch (_) {}
+    }
+  }
+
+  Future<bool> sendFileViaQuickShare({
+    required String host,
+    required int port,
+    required String token,
+    required String targetDeviceName,
+    required File file,
+    required String transferId,
+    Function(int bytesSent, int totalBytes)? onProgress,
+  }) async {
+    final fileName = path.basename(file.path);
+    final fileBytes = await file.readAsBytes();
+    final fileSize = fileBytes.length;
+    final checksum = sha256.convert(fileBytes).toString();
+
+    final localDeviceId = await _deviceRepo.getLocalDeviceId();
+    final localDeviceName = await _deviceRepo.getLocalDeviceName();
+
+    const chunkSize = 64 * 1024;
+    final totalChunks = (fileSize / chunkSize).ceil().clamp(1, 999999);
+
+    AppLogger.info('media', 'Connecting to $targetDeviceName ($host:$port) via Quick Share ($fileSize bytes, $totalChunks chunks)');
+
+    Socket socket;
+    try {
+      socket = await Socket.connect(
+        host,
+        port,
+        timeout: const Duration(seconds: 8),
+      );
+    } catch (e) {
+      AppLogger.error('media', 'Failed to connect to Quick Share receiver $host:$port: $e');
+      return false;
+    }
+
+    try {
+      final lines = utf8.decoder.bind(socket).transform(const LineSplitter());
+      final completer = Completer<bool>();
+
+      final sub = lines.listen((line) {
+        if (line.trim().isEmpty) return;
+        try {
+          final msg = SyncMessage.fromJson(line);
+          if (msg.type == SyncMessageType.fileAck) {
+            final success = msg.payload['success'] as bool? ?? false;
+            final error = msg.payload['error'] as String?;
+            if (success) {
+              AppLogger.info('media', 'Quick Share accepted and completed file transfer $transferId');
+            } else {
+              AppLogger.warning('media', 'Quick Share rejected file transfer $transferId: $error');
+            }
+            if (!completer.isCompleted) {
+              completer.complete(success);
+            }
+          } else if (msg.type == SyncMessageType.error) {
+            final errCode = msg.payload['code'] as String? ?? 'ERROR';
+            final errMsg = msg.payload['message'] as String? ?? '';
+            AppLogger.error('media', 'Quick Share receiver returned error: $errCode - $errMsg');
+            if (!completer.isCompleted) {
+              completer.complete(false);
+            }
+          }
+        } catch (_) {}
+      }, onError: (err) {
+        AppLogger.error('media', 'Socket stream error during Quick Share file transfer: $err');
+        if (!completer.isCompleted) completer.complete(false);
+      }, onDone: () {
+        if (!completer.isCompleted) completer.complete(false);
+      });
+
+      _sendMsg(socket, SyncMessage.fileMeta(
+        senderId: localDeviceId,
+        transferId: transferId,
+        fileName: fileName,
+        fileSize: fileSize,
+        fileType: path.extension(fileName),
+        checksum: checksum,
+        totalChunks: totalChunks,
+        quickShareToken: token,
+        senderName: localDeviceName,
+      ));
+
+      await socket.flush();
+
+      int bytesSent = 0;
+      for (int i = 0; i < totalChunks; i++) {
+        if (completer.isCompleted) {
+          break;
+        }
+
+        final start = i * chunkSize;
+        final end = (start + chunkSize).clamp(0, fileSize);
+        final chunk = fileBytes.sublist(start, end);
+        final base64Chunk = base64Encode(chunk);
+
+        _sendMsg(socket, SyncMessage.fileChunk(
+          senderId: localDeviceId,
+          transferId: transferId,
+          chunkIndex: i,
+          totalChunks: totalChunks,
+          dataBase64: base64Chunk,
+          quickShareToken: token,
+        ));
+
+        bytesSent += chunk.length;
+        onProgress?.call(bytesSent, fileSize);
+
+        if (i % 4 == 0) {
+          await socket.flush();
+          await Future.delayed(const Duration(milliseconds: 10));
+        }
+      }
+
+      await socket.flush();
+
+      final success = await completer.future.timeout(
+        const Duration(seconds: 45),
+        onTimeout: () => false,
       );
 
       await sub.cancel();

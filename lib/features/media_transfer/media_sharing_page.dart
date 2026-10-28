@@ -11,6 +11,9 @@ import 'package:synctask/features/media_transfer/models/media_transfer.dart';
 import 'package:synctask/features/sync/devices_page.dart';
 import 'package:synctask/features/sync/sync_controller.dart';
 import 'package:synctask/platform/native_media_service.dart';
+import 'package:synctask/platform/window_service.dart';
+import 'package:synctask/features/sync/qr_scan_page.dart';
+import 'package:synctask/features/media_transfer/widgets/quick_share_receive_dialog.dart';
 
 /// Dedicated page for Direct Device-to-Device P2P Media & File Sharing
 /// (Quick Share / AirDrop style over local Wi-Fi, Hotspot, and Bluetooth).
@@ -48,6 +51,170 @@ class _MediaSharingPageState extends State<MediaSharingPage> with WidgetsBinding
     if (state == AppLifecycleState.resumed) {
       _checkClipboardImage();
     }
+  }
+
+  Future<void> _handleScanAndSend(BuildContext context, MediaTransferController mediaCtrl) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    try {
+      if (Platform.isWindows) {
+        await PlatformWindowService.setAlwaysOnTop(false);
+      }
+
+      final picked = await FilePicker.pickFiles(
+        type: FileType.any,
+      );
+
+      if (picked.isEmpty) return;
+
+      final files = picked
+          .map((p) => p.path)
+          .whereType<String>()
+          .where((p) => File(p).existsSync())
+          .map((p) => File(p))
+          .toList();
+
+      if (files.isEmpty || !mounted) return;
+
+      final scanResult = await navigator.push<Map<String, dynamic>>(
+        MaterialPageRoute(
+          builder: (_) => QRScanPage(
+            title: 'Scan Receiver QR Code',
+            prompt: 'Point camera at the receiver\'s screen to send ${files.length} file(s)',
+          ),
+        ),
+      );
+
+      if (scanResult == null || !mounted) return;
+
+      final host = scanResult['ip'] as String?;
+      final port = scanResult['port'] as int? ?? 43884;
+      final token = scanResult['token'] as String?;
+      final targetName = (scanResult['device_name'] as String?) ?? 'Target Device';
+
+      if (host == null || token == null) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Invalid Quick Share QR code'), backgroundColor: Colors.red),
+        );
+        return;
+      }
+
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('⚡ Sending ${files.length} file(s) to $targetName...'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+
+      final count = await mediaCtrl.sendFilesViaQuickShare(
+        host: host,
+        port: port,
+        token: token,
+        targetDeviceName: targetName,
+        files: files,
+      );
+
+      if (mounted) {
+        if (count > 0) {
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text('🎉 Successfully sent $count file(s) to $targetName!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text('Failed to transfer files to $targetName. Check network connection.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Widget _buildQuickShareActionsCard(BuildContext context, MediaTransferController mediaCtrl) {
+    final theme = Theme.of(context);
+    return Card(
+      elevation: 0,
+      color: theme.colorScheme.primaryContainer.withValues(alpha: 0.25),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: theme.colorScheme.primary.withValues(alpha: 0.2)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2563EB),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Instant Quick Share (No Pairing)',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        'Select media & scan the receiver\'s QR code to transfer directly',
+                        style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
+                    label: const Text('Scan & Send'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF2563EB),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () => _handleScanAndSend(context, mediaCtrl),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.qr_code_rounded, size: 18),
+                    label: const Text('Receive Files'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () => QuickShareReceiveDialog.show(context),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _checkClipboardImage() async {
@@ -142,6 +309,10 @@ class _MediaSharingPageState extends State<MediaSharingPage> with WidgetsBinding
                 _buildClipboardScreenshotCard(context, mediaCtrl, pairedDevices.first),
                 const SizedBox(height: 14),
               ],
+
+              // 0. Instant Quick Share (Unpaired Scan & Send)
+              _buildQuickShareActionsCard(context, mediaCtrl),
+              const SizedBox(height: 14),
 
               // 1. Destination Device Target Card
               _buildTargetDeviceCard(context, mediaCtrl, syncCtrl, pairedDevices),

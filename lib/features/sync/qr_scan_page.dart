@@ -5,7 +5,14 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:synctask/platform/native_network_service.dart';
 
 class QRScanPage extends StatefulWidget {
-  const QRScanPage({super.key});
+  final String? title;
+  final String? prompt;
+
+  const QRScanPage({
+    super.key,
+    this.title,
+    this.prompt,
+  });
 
   @override
   State<QRScanPage> createState() => _QRScanPageState();
@@ -34,9 +41,16 @@ class _QRScanPageState extends State<QRScanPage> {
         try {
           final data = jsonDecode(raw);
           if (data is Map<String, dynamic> &&
-              data['type'] == 'synctask_pair' &&
-              data.containsKey('ip') &&
-              data.containsKey('pin')) {
+              (data['type'] == 'synctask_pair' || data['type'] == 'synctask_quickshare') &&
+              data.containsKey('ip')) {
+            if (data['type'] == 'synctask_quickshare') {
+              _hasDetected = true;
+              HapticFeedback.mediumImpact();
+              if (mounted) {
+                Navigator.of(context).pop(data);
+              }
+              return;
+            }
             _hasDetected = true;
             HapticFeedback.mediumImpact();
 
@@ -91,7 +105,7 @@ class _QRScanPageState extends State<QRScanPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Scan Pairing QR Code'),
+        title: Text(widget.title ?? 'Scan Pairing QR Code'),
         actions: [
           IconButton(
             icon: Icon(
@@ -140,9 +154,9 @@ class _QRScanPageState extends State<QRScanPage> {
                 color: Colors.black87,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Text(
-                'Point camera at QR code on your PC or phone',
-                style: TextStyle(
+              child: Text(
+                widget.prompt ?? 'Point camera at QR code on your PC or phone',
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,

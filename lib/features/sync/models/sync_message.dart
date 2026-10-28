@@ -274,6 +274,8 @@ class SyncMessage {
     required String fileType,
     required String checksum,
     required int totalChunks,
+    String? quickShareToken,
+    String? senderName,
     int counter = 1,
   }) {
     return SyncMessage(
@@ -288,6 +290,8 @@ class SyncMessage {
         'file_type': fileType,
         'checksum': checksum,
         'total_chunks': totalChunks,
+        if (quickShareToken != null) 'quick_share_token': quickShareToken,
+        if (senderName != null) 'sender_name': senderName,
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       },
     );
@@ -299,6 +303,7 @@ class SyncMessage {
     required int chunkIndex,
     required int totalChunks,
     required String dataBase64,
+    String? quickShareToken,
     int counter = 1,
   }) {
     return SyncMessage(
@@ -311,6 +316,7 @@ class SyncMessage {
         'chunk_index': chunkIndex,
         'total_chunks': totalChunks,
         'data': dataBase64,
+        if (quickShareToken != null) 'quick_share_token': quickShareToken,
       },
     );
   }

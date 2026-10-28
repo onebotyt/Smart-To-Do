@@ -27,6 +27,8 @@ class MediaTransferController extends ChangeNotifier {
     _initEngineCallbacks();
   }
 
+  SyncEngine get syncEngine => _syncEngine;
+
   List<MediaTransferItem> get transfers => List.unmodifiable(_transfers);
   List<MediaTransferItem> get recentReceived => List.unmodifiable(_recentReceived);
   Stream<MediaTransferItem> get onMediaReceived => _mediaReceivedStream.stream;
@@ -242,6 +244,71 @@ class MediaTransferController extends ChangeNotifier {
       onNotification?.call('File picker error: $e', isError: true);
       return 0;
     }
+  }
+
+  Future<int> sendFilesViaQuickShare({
+    required String host,
+    required int port,
+    required String token,
+    required String targetDeviceName,
+    required List<File> files,
+  }) async {
+    int count = 0;
+    for (int i = 0; i < files.length; i++) {
+      final file = files[i];
+      if (!file.existsSync()) continue;
+
+      final transferId = 'qs-${DateTime.now().millisecondsSinceEpoch}-$i';
+      final fileName = path.basename(file.path);
+      final fileSize = file.lengthSync();
+
+      final item = MediaTransferItem(
+        id: transferId,
+        fileName: fileName,
+        filePath: file.path,
+        fileSize: fileSize,
+        senderId: 'local',
+        senderName: 'This Device',
+        receiverId: 'quickshare',
+        receiverName: targetDeviceName,
+        isOutgoing: true,
+        status: MediaTransferStatus.transferring,
+      );
+
+      _transfers.insert(0, item);
+      notifyListeners();
+
+      final ok = await _syncEngine.sendFileViaQuickShare(
+        host: host,
+        port: port,
+        token: token,
+        targetDeviceName: targetDeviceName,
+        file: file,
+        transferId: transferId,
+        onProgress: (sent, total) {
+          final idx = _transfers.indexWhere((t) => t.id == transferId);
+          if (idx != -1) {
+            _transfers[idx].bytesTransferred = sent;
+            notifyListeners();
+          }
+        },
+      );
+
+      final idx = _transfers.indexWhere((t) => t.id == transferId);
+      if (idx != -1) {
+        _transfers[idx].status = ok ? MediaTransferStatus.completed : MediaTransferStatus.failed;
+        if (ok) {
+          _transfers[idx].bytesTransferred = fileSize;
+          count++;
+        }
+        notifyListeners();
+      }
+    }
+
+    if (count > 0) {
+      onNotification?.call('Sent $count file(s) via Quick Share to $targetDeviceName');
+    }
+    return count;
   }
 
   Future<OpenResult> openFile(String filePath) async {
