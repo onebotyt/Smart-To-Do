@@ -86,42 +86,34 @@ jobs:
       - name: Run tests
         run: flutter test --reporter=expanded || true
 
-      - name: Build Windows Desktop Release
-        run: flutter build windows --release -v --dart-define=APP_VERSION=0.1.${{ github.run_number }}
-
-      - name: Sign Windows Executable
-        shell: pwsh
-        run: |
-          .\windows\sign.ps1 -FilePath "build\windows\x64\runner\Release\synctask.exe"
-
-      - name: Copy Install Scripts to Bundle
-        shell: pwsh
-        run: |
-          Copy-Item "windows\Install-SyncTask.cmd" -Destination "build\windows\x64\runner\Release\"
-          Copy-Item "windows\Install-SyncTask.ps1" -Destination "build\windows\x64\runner\Release\"
-
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
 
-      - name: Compile Windows Setup Installers
-        run: |
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppName=SyncTask" "/DMyAppId={{D37F27B4-6E11-4775-926B-3C4254DF5742}" "/DOutputBaseFilename=SyncTask-Setup" "/DMyAppVersion=0.1.${{ github.run_number }}" windows\installer.iss
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppName=SyncTask Pure" "/DMyAppId={{D37F27B4-6E11-4775-926B-3C4254DF5742}" "/DOutputBaseFilename=SyncTask-Pure-Setup" "/DMyAppVersion=0.1.${{ github.run_number }}" windows\installer.iss
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppName=SyncTask AI Studio" "/DMyAppId={{E48A38C5-7F22-4886-A37C-4D5365EA6853}}" "/DOutputBaseFilename=SyncTask-AI-Studio-Setup" "/DMyAppVersion=0.1.${{ github.run_number }}" windows\installer.iss
-
-      - name: Sign Setup Installers
+      - name: Build Windows Desktop Release (Pure Edition)
         shell: pwsh
         run: |
-          .\windows\sign.ps1 -FilePath "SyncTask-Setup.exe"
+          Copy-Item "windows\runner\resources\app_icon_pure.ico" -Destination "windows\runner\resources\app_icon.ico" -Force
+          flutter build windows --release -v --dart-define=APP_EDITION=pure --dart-define=APP_VERSION=0.1.${{ github.run_number }}
+          .\windows\sign.ps1 -FilePath "build\windows\x64\runner\Release\synctask.exe"
+          Copy-Item "windows\Install-SyncTask.cmd" -Destination "build\windows\x64\runner\Release\"
+          Copy-Item "windows\Install-SyncTask.ps1" -Destination "build\windows\x64\runner\Release\"
+          Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "SyncTask-Pure-Windows.zip"
+          Copy-Item "SyncTask-Pure-Windows.zip" -Destination "SyncTask-Windows.zip"
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppName=SyncTask Pure" "/DMyAppId={{D37F27B4-6E11-4775-926B-3C4254DF5742}}" "/DOutputBaseFilename=SyncTask-Pure-Setup" "/DSetupIcon=runner\resources\app_icon_pure.ico" "/DMyAppVersion=0.1.${{ github.run_number }}" windows\installer.iss
           .\windows\sign.ps1 -FilePath "SyncTask-Pure-Setup.exe"
-          .\windows\sign.ps1 -FilePath "SyncTask-AI-Studio-Setup.exe"
+          Copy-Item "SyncTask-Pure-Setup.exe" -Destination "SyncTask-Setup.exe"
 
-      - name: Compress Windows bundle
+      - name: Build Windows Desktop Release (AI Studio Edition)
         shell: pwsh
         run: |
-          Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "SyncTask-Windows.zip"
-          Copy-Item "SyncTask-Windows.zip" -Destination "SyncTask-Pure-Windows.zip"
-          Copy-Item "SyncTask-Windows.zip" -Destination "SyncTask-AI-Studio-Windows.zip"
+          Copy-Item "windows\runner\resources\app_icon_ai.ico" -Destination "windows\runner\resources\app_icon.ico" -Force
+          flutter build windows --release -v --dart-define=APP_EDITION=ai --dart-define=APP_VERSION=0.1.${{ github.run_number }}
+          .\windows\sign.ps1 -FilePath "build\windows\x64\runner\Release\synctask.exe"
+          Copy-Item "windows\Install-SyncTask.cmd" -Destination "build\windows\x64\runner\Release\"
+          Copy-Item "windows\Install-SyncTask.ps1" -Destination "build\windows\x64\runner\Release\"
+          Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "SyncTask-AI-Studio-Windows.zip"
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppName=SyncTask AI Studio" "/DMyAppId={{E48A38C5-7F22-4886-A37C-4D5365EA6853}}" "/DOutputBaseFilename=SyncTask-AI-Studio-Setup" "/DSetupIcon=runner\resources\app_icon_ai.ico" "/DMyAppVersion=0.1.${{ github.run_number }}" windows\installer.iss
+          .\windows\sign.ps1 -FilePath "SyncTask-AI-Studio-Setup.exe"
 
       - name: Upload Windows Bundles
         uses: actions/upload-artifact@v4

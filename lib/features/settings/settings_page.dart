@@ -529,7 +529,7 @@ class _UpdateTileState extends State<_UpdateTile> {
         ),
         alignment: Alignment.center,
         child: ClipOval(
-          child: Image.asset('assets/logo.png', width: 28, height: 28),
+          child: Image.asset(const String.fromEnvironment('APP_EDITION') == 'ai' ? 'assets/logo_ai.png' : 'assets/logo.png', width: 28, height: 28),
         ),
       ),
       title: const Text('SyncTask Updates', style: TextStyle(fontWeight: FontWeight.bold)),

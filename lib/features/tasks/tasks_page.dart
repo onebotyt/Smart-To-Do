@@ -17,8 +17,10 @@ import '../sync/sync_controller.dart';
 import '../update/update_dialog.dart';
 import '../monetization/ad_container_widget.dart';
 import 'task_controller.dart';
-import 'task_edit_page.dart';
-import '../../data/services/cloud_sync_service.dart';
+import 'task_edit_page.dart';
+
+import '../../data/services/cloud_sync_service.dart';
+
 import '../sync/widgets/cloud_sync_status_button.dart';
 
 class TasksPage extends StatefulWidget {
@@ -146,11 +148,19 @@ class _TasksPageState extends State<TasksPage> with WidgetsBindingObserver {
           mainAxisSize: MainAxisSize.min,
           children: [
             ClipOval(
-              child: Image.asset('assets/logo.png', width: 26, height: 26),
+              child: Image.asset(
+                const String.fromEnvironment('APP_EDITION') == 'ai'
+                    ? 'assets/logo_ai.png'
+                    : 'assets/logo.png',
+                width: 26,
+                height: 26,
+              ),
             ),
             const SizedBox(width: 8),
             const Text(
-              'SyncTask',
+              String.fromEnvironment('APP_EDITION') == 'ai'
+                  ? 'SyncTask AI'
+                  : 'SyncTask',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
             if (!isMobile) ...[

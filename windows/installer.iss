@@ -10,6 +10,9 @@
 #ifndef OutputBaseFilename
 #define OutputBaseFilename "SyncTask-Setup"
 #endif
+#ifndef SetupIcon
+#define SetupIcon "runner\resources\app_icon.ico"
+#endif
 #define MyAppPublisher "Girdhar Dhami (OneBotYT)"
 #define MyAppURL "https://github.com/onebotyt/Smart-To-Do"
 #define MyAppExeName "synctask.exe"
@@ -32,7 +35,7 @@ DefaultDirName={localappdata}\Programs\{#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=..\
 OutputBaseFilename={#OutputBaseFilename}
-SetupIconFile=runner\resources\app_icon.ico
+SetupIconFile={#SetupIcon}
 UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma
 SolidCompression=yes
