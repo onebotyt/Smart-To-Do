@@ -48,7 +48,7 @@ class CloudSyncService extends ChangeNotifier {
   static const String _isPremiumKey = 'synctask_is_premium';
 
   // Default production backend on Render (user can configure custom URL)
-  static const String defaultBackendUrl = 'https://to-do-backend.onrender.com';
+  static const String defaultBackendUrl = 'https://to-do-backend-zndz.onrender.com';
 
   String _backendUrl = defaultBackendUrl;
   String? _jwtToken;
