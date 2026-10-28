@@ -1,3 +1,5 @@
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
@@ -7,7 +9,7 @@ plugins {
 val dartDefinesString = project.findProperty("dart-defines") as? String
 val isAiEdition = if (dartDefinesString != null) {
     try {
-        val decoded = String(java.util.Base64.getDecoder().decode(dartDefinesString))
+        val decoded = String(Base64.getDecoder().decode(dartDefinesString))
         decoded.contains("APP_EDITION=ai")
     } catch (e: Exception) {
         false
@@ -28,7 +30,7 @@ android {
 
     defaultConfig {
         applicationId = if (isAiEdition) "com.synctask.aistudio" else "com.synctask.pure"
-        resValue("string", "app_name", if (isAiEdition) "SyncTask AI Studio" else "SyncTask")
+        manifestPlaceholders["appName"] = if (isAiEdition) "SyncTask AI Studio" else "SyncTask"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
