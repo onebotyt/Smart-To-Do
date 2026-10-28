@@ -246,6 +246,68 @@ class MediaTransferController extends ChangeNotifier {
     }
   }
 
+  Future<int> sendMultipleFiles(Device device, List<File> files) async {
+    if (device.ipAddress == null || device.ipAddress!.isEmpty) {
+      onNotification?.call('Device IP is unknown. Ensure both devices are connected.', isError: true);
+      return 0;
+    }
+
+    int count = 0;
+    for (int i = 0; i < files.length; i++) {
+      final file = files[i];
+      if (!file.existsSync()) continue;
+
+      final transferId = 'bulk-${DateTime.now().millisecondsSinceEpoch}-$i';
+      final fileName = path.basename(file.path);
+      final fileSize = file.lengthSync();
+
+      final item = MediaTransferItem(
+        id: transferId,
+        fileName: fileName,
+        filePath: file.path,
+        fileSize: fileSize,
+        senderId: 'local',
+        senderName: 'This Device',
+        receiverId: device.id,
+        receiverName: device.name,
+        isOutgoing: true,
+        status: MediaTransferStatus.transferring,
+      );
+
+      _transfers.insert(0, item);
+      notifyListeners();
+
+      final success = await _syncEngine.sendFileToPeer(
+        device: device,
+        file: file,
+        transferId: transferId,
+        onProgress: (sent, total) {
+          final idx = _transfers.indexWhere((t) => t.id == transferId);
+          if (idx != -1) {
+            _transfers[idx].bytesTransferred = sent;
+            notifyListeners();
+          }
+        },
+      );
+
+      final idx = _transfers.indexWhere((t) => t.id == transferId);
+      if (idx != -1) {
+        _transfers[idx].status =
+            success ? MediaTransferStatus.completed : MediaTransferStatus.failed;
+        if (success) {
+          _transfers[idx].bytesTransferred = fileSize;
+          count++;
+        }
+        notifyListeners();
+      }
+    }
+
+    if (count > 0) {
+      onNotification?.call('Sent $count file(s) to ${device.name}');
+    }
+    return count;
+  }
+
   Future<int> sendFilesViaQuickShare({
     required String host,
     required int port,
@@ -348,6 +410,13 @@ class MediaTransferController extends ChangeNotifier {
     } catch (e) {
       onNotification?.call('Failed to open media directory: $e', isError: true);
     }
+  }
+
+  void removeTransfers(Iterable<String> ids) {
+    final idSet = ids.toSet();
+    _transfers.removeWhere((t) => idSet.contains(t.id));
+    _recentReceived.removeWhere((t) => idSet.contains(t.id));
+    notifyListeners();
   }
 
   void clearHistory() {

@@ -493,6 +493,26 @@ void main() {
       expect(success, isFalse);
     });
 
+    test('Bulk Select & Send: Streams multiple files sequentially and manages batch removal', () async {
+      final file1 = File('${tempDirA.path}/bulk_1.txt');
+      await file1.writeAsString('Bulk payload 1');
+      final file2 = File('${tempDirA.path}/bulk_2.txt');
+      await file2.writeAsString('Bulk payload 2');
+
+      final sentCount = await controllerA.sendMultipleFiles(
+        deviceB,
+        [file1, file2],
+      );
+
+      expect(sentCount, 2);
+      expect(controllerA.transfers.length, greaterThanOrEqualTo(2));
+
+      // Test batch removal of transfers
+      final idsToRemove = controllerA.transfers.take(2).map((t) => t.id).toList();
+      controllerA.removeTransfers(idsToRemove);
+      expect(controllerA.transfers.any((t) => idsToRemove.contains(t.id)), isFalse);
+    });
+
   });
 
   group('MediaStorageHelper Directory Tests', () {

@@ -14,6 +14,7 @@ import 'package:synctask/platform/native_media_service.dart';
 import 'package:synctask/platform/window_service.dart';
 import 'package:synctask/features/sync/qr_scan_page.dart';
 import 'package:synctask/features/media_transfer/widgets/quick_share_receive_dialog.dart';
+import 'package:synctask/features/media_transfer/widgets/bulk_send_sheet.dart';
 
 /// Dedicated page for Direct Device-to-Device P2P Media & File Sharing
 /// (Quick Share / AirDrop style over local Wi-Fi, Hotspot, and Bluetooth).
@@ -30,6 +31,8 @@ class _MediaSharingPageState extends State<MediaSharingPage> with WidgetsBinding
   Device? _selectedDevice;
   String _saveDirPath = '';
   String? _clipboardImagePath;
+  bool _isSelectMode = false;
+  final Set<String> _selectedTransferIds = {};
 
   @override
   void initState() {
@@ -186,6 +189,7 @@ class _MediaSharingPageState extends State<MediaSharingPage> with WidgetsBinding
             Row(
               children: [
                 Expanded(
+                  flex: 5,
                   child: FilledButton.icon(
                     icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
                     label: const Text('Scan & Send'),
@@ -197,11 +201,25 @@ class _MediaSharingPageState extends State<MediaSharingPage> with WidgetsBinding
                     onPressed: () => _handleScanAndSend(context, mediaCtrl),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Expanded(
+                  flex: 5,
+                  child: FilledButton.tonalIcon(
+                    icon: const Icon(Icons.folder_zip_rounded, size: 18),
+                    label: const Text('Bulk Send'),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () => BulkSendSheet.show(context),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 4,
                   child: OutlinedButton.icon(
                     icon: const Icon(Icons.qr_code_rounded, size: 18),
-                    label: const Text('Receive Files'),
+                    label: const Text('Receive'),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -347,20 +365,114 @@ class _MediaSharingPageState extends State<MediaSharingPage> with WidgetsBinding
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Transfer History (${completedTransfers.length})',
+                    _isSelectMode
+                        ? '${_selectedTransferIds.length} of ${completedTransfers.length} Selected'
+                        : 'Transfer History (${completedTransfers.length})',
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.bold,
+                      color: _isSelectMode ? const Color(0xFF2563EB) : null,
                     ),
                   ),
                   if (completedTransfers.isNotEmpty)
-                    TextButton.icon(
-                      icon: const Icon(Icons.clear_all, size: 16),
-                      label: const Text('Clear Finished'),
-                      onPressed: () => mediaCtrl.clearHistory(),
+                    Row(
+                      children: [
+                        if (_isSelectMode) ...[
+                          TextButton(
+                            onPressed: () {
+                              setState(() {
+                                if (_selectedTransferIds.length == completedTransfers.length) {
+                                  _selectedTransferIds.clear();
+                                } else {
+                                  _selectedTransferIds.addAll(completedTransfers.map((t) => t.id));
+                                }
+                              });
+                            },
+                            child: Text(
+                              _selectedTransferIds.length == completedTransfers.length
+                                  ? 'Deselect'
+                                  : 'Select All',
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              setState(() {
+                                _isSelectMode = false;
+                                _selectedTransferIds.clear();
+                              });
+                            },
+                            child: const Text('Done'),
+                          ),
+                        ] else ...[
+                          IconButton(
+                            icon: const Icon(Icons.checklist_rounded, size: 20),
+                            tooltip: 'Select Multiple',
+                            onPressed: () {
+                              setState(() {
+                                _isSelectMode = true;
+                                _selectedTransferIds.clear();
+                              });
+                            },
+                          ),
+                          TextButton.icon(
+                            icon: const Icon(Icons.clear_all, size: 16),
+                            label: const Text('Clear'),
+                            onPressed: () => mediaCtrl.clearHistory(),
+                          ),
+                        ],
+                      ],
                     ),
                 ],
               ),
               const SizedBox(height: 8),
+
+              if (_isSelectMode && _selectedTransferIds.isNotEmpty) ...[
+                Card(
+                  color: const Color(0xFF2563EB).withValues(alpha: 0.12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    child: Row(
+                      children: [
+                        Text(
+                          '${_selectedTransferIds.length} item(s) selected',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                        const Spacer(),
+                        FilledButton.icon(
+                          icon: const Icon(Icons.send_rounded, size: 16),
+                          label: const Text('Send Selected'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF2563EB),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          onPressed: () {
+                            final files = completedTransfers
+                                .where((t) => _selectedTransferIds.contains(t.id))
+                                .map((t) => File(t.filePath))
+                                .where((f) => f.existsSync())
+                                .toList();
+                            if (files.isNotEmpty) {
+                              BulkSendSheet.show(context, initialFiles: files);
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                          tooltip: 'Delete Selected',
+                          onPressed: () {
+                            mediaCtrl.removeTransfers(_selectedTransferIds);
+                            setState(() {
+                              _selectedTransferIds.clear();
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
 
               if (completedTransfers.isEmpty && activeTransfers.isEmpty)
                 _buildEmptyState(context, pairedDevices.isNotEmpty)
@@ -753,6 +865,21 @@ class _MediaSharingPageState extends State<MediaSharingPage> with WidgetsBinding
           children: [
             Row(
               children: [
+                if (_isSelectMode) ...[
+                  Checkbox(
+                    value: _selectedTransferIds.contains(item.id),
+                    onChanged: (val) {
+                      setState(() {
+                        if (val == true) {
+                          _selectedTransferIds.add(item.id);
+                        } else {
+                          _selectedTransferIds.remove(item.id);
+                        }
+                      });
+                    },
+                  ),
+                  const SizedBox(width: 4),
+                ],
                 // Real Image / Video / Document Thumbnail
                 _buildItemThumbnail(context, item, fileExists, file),
                 const SizedBox(width: 12),
