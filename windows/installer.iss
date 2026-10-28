@@ -1,13 +1,21 @@
+#ifndef MyAppName
 #define MyAppName "SyncTask"
+#endif
 #ifndef MyAppVersion
 #define MyAppVersion "0.1.0"
+#endif
+#ifndef MyAppId
+#define MyAppId "{{D37F27B4-6E11-4775-926B-3C4254DF5742}"
+#endif
+#ifndef OutputBaseFilename
+#define OutputBaseFilename "SyncTask-Setup"
 #endif
 #define MyAppPublisher "Girdhar Dhami (OneBotYT)"
 #define MyAppURL "https://github.com/onebotyt/Smart-To-Do"
 #define MyAppExeName "synctask.exe"
 
 [Setup]
-AppId={{D37F27B4-6E11-4775-926B-3C4254DF5742}
+AppId={#MyAppId}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
@@ -15,7 +23,7 @@ AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
 VersionInfoCompany={#MyAppPublisher}
-VersionInfoDescription=SyncTask Setup Installer
+VersionInfoDescription={#MyAppName} Setup Installer
 VersionInfoVersion={#MyAppVersion}
 VersionInfoCopyright=Copyright (C) 2026 {#MyAppPublisher}
 VersionInfoProductName={#MyAppName}
@@ -23,7 +31,7 @@ VersionInfoProductVersion={#MyAppVersion}
 DefaultDirName={localappdata}\Programs\{#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=..\
-OutputBaseFilename=SyncTask-Setup
+OutputBaseFilename={#OutputBaseFilename}
 SetupIconFile=runner\resources\app_icon.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma

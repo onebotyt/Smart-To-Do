@@ -4,6 +4,18 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val dartDefinesString = project.findProperty("dart-defines") as? String
+val isAiEdition = if (dartDefinesString != null) {
+    try {
+        val decoded = String(java.util.Base64.getDecoder().decode(dartDefinesString))
+        decoded.contains("APP_EDITION=ai")
+    } catch (e: Exception) {
+        false
+    }
+} else {
+    false
+}
+
 android {
     namespace = "com.synctask.synctask"
     compileSdk = flutter.compileSdkVersion
@@ -15,7 +27,8 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.synctask.synctask"
+        applicationId = if (isAiEdition) "com.synctask.aistudio" else "com.synctask.pure"
+        resValue("string", "app_name", if (isAiEdition) "SyncTask AI Studio" else "SyncTask")
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

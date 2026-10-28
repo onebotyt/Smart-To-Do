@@ -9,7 +9,7 @@ on:
 
 jobs:
   build-android:
-    name: Build Android APK
+    name: Build Android APKs (Pure & AI Studio)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -36,25 +36,36 @@ jobs:
       - name: Run unit & widget tests
         run: flutter test --reporter=expanded || true
 
-      - name: Build Android Release APKs
+      - name: Build Android Release APKs (Pure Edition)
         run: |
-          flutter build apk --release --dart-define=APP_VERSION=0.1.${{ github.run_number }}
-          flutter build apk --release --split-per-abi --dart-define=APP_VERSION=0.1.${{ github.run_number }}
+          flutter build apk --release --dart-define=APP_EDITION=pure --dart-define=APP_VERSION=0.1.${{ github.run_number }}
+          flutter build apk --release --split-per-abi --dart-define=APP_EDITION=pure --dart-define=APP_VERSION=0.1.${{ github.run_number }}
+          mkdir -p build/dist-pure
+          cp build/app/outputs/flutter-apk/app-release.apk build/dist-pure/SyncTask-Pure-Android.apk
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/dist-pure/SyncTask-Pure-Android-arm64.apk
 
-      - name: Upload Android Universal APK
+      - name: Upload Android Pure Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: synctask-android-release-universal
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: synctask-pure-android
+          path: build/dist-pure/
 
-      - name: Upload Android arm64 APK
+      - name: Build Android Release APKs (AI Studio Edition)
+        run: |
+          flutter build apk --release --dart-define=APP_EDITION=ai --dart-define=APP_VERSION=0.1.${{ github.run_number }}
+          flutter build apk --release --split-per-abi --dart-define=APP_EDITION=ai --dart-define=APP_VERSION=0.1.${{ github.run_number }}
+          mkdir -p build/dist-ai
+          cp build/app/outputs/flutter-apk/app-release.apk build/dist-ai/SyncTask-AI-Studio-Android.apk
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/dist-ai/SyncTask-AI-Studio-Android-arm64.apk
+
+      - name: Upload Android AI Studio Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: synctask-android-release-arm64
-          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          name: synctask-ai-android
+          path: build/dist-ai/
 
   build-windows:
-    name: Build Windows Application
+    name: Build Windows Application (Pure & AI Studio)
     runs-on: windows-latest
     steps:
       - name: Checkout repository
@@ -92,31 +103,43 @@ jobs:
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
 
-      - name: Compile Windows Setup Installer
+      - name: Compile Windows Setup Installers
         run: |
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=0.1.${{ github.run_number }}" windows\installer.iss
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppName=SyncTask" "/DMyAppId={{D37F27B4-6E11-4775-926B-3C4254DF5742}" "/DOutputBaseFilename=SyncTask-Setup" "/DMyAppVersion=0.1.${{ github.run_number }}" windows\installer.iss
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppName=SyncTask Pure" "/DMyAppId={{D37F27B4-6E11-4775-926B-3C4254DF5742}" "/DOutputBaseFilename=SyncTask-Pure-Setup" "/DMyAppVersion=0.1.${{ github.run_number }}" windows\installer.iss
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppName=SyncTask AI Studio" "/DMyAppId={{E48A38C5-7F22-4886-A37C-4D5365EA6853}}" "/DOutputBaseFilename=SyncTask-AI-Studio-Setup" "/DMyAppVersion=0.1.${{ github.run_number }}" windows\installer.iss
 
-      - name: Sign Setup Installer
+      - name: Sign Setup Installers
         shell: pwsh
         run: |
           .\windows\sign.ps1 -FilePath "SyncTask-Setup.exe"
+          .\windows\sign.ps1 -FilePath "SyncTask-Pure-Setup.exe"
+          .\windows\sign.ps1 -FilePath "SyncTask-AI-Studio-Setup.exe"
 
       - name: Compress Windows bundle
         shell: pwsh
         run: |
-          Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "synctask-windows-release.zip"
+          Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "SyncTask-Windows.zip"
+          Copy-Item "SyncTask-Windows.zip" -Destination "SyncTask-Pure-Windows.zip"
+          Copy-Item "SyncTask-Windows.zip" -Destination "SyncTask-AI-Studio-Windows.zip"
 
-      - name: Upload Windows Bundle
+      - name: Upload Windows Bundles
         uses: actions/upload-artifact@v4
         with:
-          name: synctask-windows-release
-          path: synctask-windows-release.zip
+          name: synctask-windows-bundles
+          path: |
+            SyncTask-Windows.zip
+            SyncTask-Pure-Windows.zip
+            SyncTask-AI-Studio-Windows.zip
 
-      - name: Upload Windows Setup Installer
+      - name: Upload Windows Setup Installers
         uses: actions/upload-artifact@v4
         with:
-          name: synctask-windows-setup
-          path: SyncTask-Setup.exe
+          name: synctask-windows-setups
+          path: |
+            SyncTask-Setup.exe
+            SyncTask-Pure-Setup.exe
+            SyncTask-AI-Studio-Setup.exe
 
   release:
     name: Publish Auto-Versioned GitHub Release
@@ -126,64 +149,95 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download Android Universal APK
+      - name: Download Android Pure Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: synctask-android-release-universal
+          name: synctask-pure-android
 
-      - name: Download Android arm64 APK
+      - name: Download Android AI Studio Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: synctask-android-release-arm64
+          name: synctask-ai-android
 
-      - name: Download Windows Artifact
+      - name: Download Windows Bundles
         uses: actions/download-artifact@v4
         with:
-          name: synctask-windows-release
+          name: synctask-windows-bundles
 
-      - name: Download Windows Setup
+      - name: Download Windows Setups
         uses: actions/download-artifact@v4
         with:
-          name: synctask-windows-setup
+          name: synctask-windows-setups
 
       - name: Prepare Assets with Auto-Versioning
         run: |
           VERSION="v0.1.${{ github.run_number }}"
           echo "VERSION_TAG=$VERSION" >> $GITHUB_ENV
-          cp app-release.apk "SyncTask-Android.apk"
-          cp app-release.apk "SyncTask-${VERSION}-android-universal.apk"
-          cp app-arm64-v8a-release.apk "SyncTask-Android-arm64.apk"
-          cp app-arm64-v8a-release.apk "SyncTask-${VERSION}-android-arm64.apk"
-          cp synctask-windows-release.zip "SyncTask-${VERSION}-windows.zip"
-          cp synctask-windows-release.zip "SyncTask-Windows.zip"
-          cp SyncTask-Setup.exe "SyncTask-${VERSION}-windows-setup.exe"
+          # Pure Aliases
+          cp SyncTask-Pure-Android.apk "SyncTask-Android.apk"
+          cp SyncTask-Pure-Android.apk "SyncTask-${VERSION}-pure-android.apk"
+          cp SyncTask-Pure-Android-arm64.apk "SyncTask-Android-arm64.apk"
+          cp SyncTask-Pure-Android-arm64.apk "SyncTask-${VERSION}-pure-android-arm64.apk"
+          cp SyncTask-Pure-Windows.zip "SyncTask-${VERSION}-pure-windows.zip"
+          cp SyncTask-Pure-Setup.exe "SyncTask-${VERSION}-pure-windows-setup.exe"
+          # AI Studio Versioned
+          cp SyncTask-AI-Studio-Android.apk "SyncTask-${VERSION}-ai-studio-android.apk"
+          cp SyncTask-AI-Studio-Android-arm64.apk "SyncTask-${VERSION}-ai-studio-android-arm64.apk"
+          cp SyncTask-AI-Studio-Windows.zip "SyncTask-${VERSION}-ai-studio-windows.zip"
+          cp SyncTask-AI-Studio-Setup.exe "SyncTask-${VERSION}-ai-studio-windows-setup.exe"
 
       - name: Create or Update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.VERSION_TAG }}
-          name: SyncTask ${{ env.VERSION_TAG }}
+          name: SyncTask ${{ env.VERSION_TAG }} (Pure & AI Studio)
           draft: false
           prerelease: false
           body: |
             ## SyncTask ${{ env.VERSION_TAG }}
-            
+
             Automated production release generated from commit `${{ github.sha }}`.
 
-            ### 🚀 Direct One-Click Downloads
-            - 💻 **Windows Desktop Installer (Recommended)**: [SyncTask-Setup.exe](https://github.com/onebotyt/Smart-To-Do/releases/download/${{ env.VERSION_TAG }}/SyncTask-Setup.exe) *(Standard Windows Setup Wizard)*
-            - 💻 **Windows Portable Bundle**: [SyncTask-Windows.zip](https://github.com/onebotyt/Smart-To-Do/releases/download/${{ env.VERSION_TAG }}/SyncTask-Windows.zip)
-            - 📱 **Android (Lightweight ~20MB, for all modern phones)**: [SyncTask-Android-arm64.apk](https://github.com/onebotyt/Smart-To-Do/releases/download/${{ env.VERSION_TAG }}/SyncTask-Android-arm64.apk)
-            - 📱 **Android (Universal, all architectures)**: [SyncTask-Android.apk](https://github.com/onebotyt/Smart-To-Do/releases/download/${{ env.VERSION_TAG }}/SyncTask-Android.apk)
+            ---
+
+            ### 🟢 SyncTask Pure (Commercial / Non-AI Edition)
+            *Ultra-lightweight (<40 MB RAM), local-first task manager with Wi-Fi P2P sync, optional MongoDB Atlas cloud sync, containerized silent ads, and ₹10/month Ad-Free plan.*
+            * **Application ID**: `com.synctask.pure` (Installs side-by-side with AI Studio!)
+            - 💻 **Windows Desktop Installer**: [SyncTask-Pure-Setup.exe](https://github.com/onebotyt/Smart-To-Do/releases/download/${{ env.VERSION_TAG }}/SyncTask-Pure-Setup.exe)
+            - 💻 **Windows Portable Bundle**: [SyncTask-Pure-Windows.zip](https://github.com/onebotyt/Smart-To-Do/releases/download/${{ env.VERSION_TAG }}/SyncTask-Pure-Windows.zip)
+            - 📱 **Android (arm64, Vivo/Samsung/OnePlus)**: [SyncTask-Pure-Android-arm64.apk](https://github.com/onebotyt/Smart-To-Do/releases/download/${{ env.VERSION_TAG }}/SyncTask-Pure-Android-arm64.apk)
+            - 📱 **Android (Universal)**: [SyncTask-Pure-Android.apk](https://github.com/onebotyt/Smart-To-Do/releases/download/${{ env.VERSION_TAG }}/SyncTask-Pure-Android.apk)
+
+            ---
+
+            ### 🤖 SyncTask AI Studio & Assistant (AI Edition)
+            *Full-featured AI Studio with Sky AI Assistant, Local SLM Gateway, Lenovo Gaming 3 RTX 2050 GPU offloading, Multi-agent orchestrator, Project Graph Studio, and floating companion.*
+            * **Application ID**: `com.synctask.aistudio` (Installs side-by-side with Pure!)
+            - 💻 **Windows Desktop Installer**: [SyncTask-AI-Studio-Setup.exe](https://github.com/onebotyt/Smart-To-Do/releases/download/${{ env.VERSION_TAG }}/SyncTask-AI-Studio-Setup.exe)
+            - 💻 **Windows Portable Bundle**: [SyncTask-AI-Studio-Windows.zip](https://github.com/onebotyt/Smart-To-Do/releases/download/${{ env.VERSION_TAG }}/SyncTask-AI-Studio-Windows.zip)
+            - 📱 **Android (arm64)**: [SyncTask-AI-Studio-Android-arm64.apk](https://github.com/onebotyt/Smart-To-Do/releases/download/${{ env.VERSION_TAG }}/SyncTask-AI-Studio-Android-arm64.apk)
+            - 📱 **Android (Universal)**: [SyncTask-AI-Studio-Android.apk](https://github.com/onebotyt/Smart-To-Do/releases/download/${{ env.VERSION_TAG }}/SyncTask-AI-Studio-Android.apk)
           files: |
+            SyncTask-Pure-Setup.exe
+            SyncTask-Pure-Windows.zip
+            SyncTask-Pure-Android-arm64.apk
+            SyncTask-Pure-Android.apk
             SyncTask-Setup.exe
             SyncTask-Windows.zip
-            SyncTask-Android.apk
             SyncTask-Android-arm64.apk
-            SyncTask-${{ env.VERSION_TAG }}-windows-setup.exe
-            SyncTask-${{ env.VERSION_TAG }}-windows.zip
-            SyncTask-${{ env.VERSION_TAG }}-android-universal.apk
-            SyncTask-${{ env.VERSION_TAG }}-android-arm64.apk
+            SyncTask-Android.apk
+            SyncTask-AI-Studio-Setup.exe
+            SyncTask-AI-Studio-Windows.zip
+            SyncTask-AI-Studio-Android-arm64.apk
+            SyncTask-AI-Studio-Android.apk
+            SyncTask-${{ env.VERSION_TAG }}-pure-windows-setup.exe
+            SyncTask-${{ env.VERSION_TAG }}-pure-windows.zip
+            SyncTask-${{ env.VERSION_TAG }}-pure-android-arm64.apk
+            SyncTask-${{ env.VERSION_TAG }}-pure-android.apk
+            SyncTask-${{ env.VERSION_TAG }}-ai-studio-windows-setup.exe
+            SyncTask-${{ env.VERSION_TAG }}-ai-studio-windows.zip
+            SyncTask-${{ env.VERSION_TAG }}-ai-studio-android-arm64.apk
+            SyncTask-${{ env.VERSION_TAG }}-ai-studio-android.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

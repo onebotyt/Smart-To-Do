@@ -25,6 +25,9 @@ import 'platform/native_media_service.dart';
 import 'platform/voice_service.dart';
 import 'platform/window_service.dart';
 
+const String appEdition = String.fromEnvironment('APP_EDITION', defaultValue: 'pure');
+const bool isAiEdition = appEdition == 'ai';
+
 Future<void> main([List<String> args = const []]) async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppLogger.init();
@@ -81,16 +84,18 @@ Future<void> main([List<String> args = const []]) async {
   skyController.voiceService = NativeVoiceService.instance;
 
   taskController.onTaskCompletionChanged = (task, completed) {
-    if (completed) {
+    if (completed && isAiEdition) {
       skyController.celebrateTaskCompletion(task.title);
     }
   };
 
-  WidgetsBinding.instance.addPostFrameCallback((_) async {
-    await Future.delayed(const Duration(milliseconds: 800));
-    final briefing = skyController.generateBriefing(taskController.tasks);
-    skyController.speakBriefing(briefing);
-  });
+  if (isAiEdition) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future.delayed(const Duration(milliseconds: 800));
+      final briefing = skyController.generateBriefing(taskController.tasks);
+      skyController.speakBriefing(briefing);
+    });
+  }
 
   syncController.engine.onTasksReceived = () {
     taskController.refresh();

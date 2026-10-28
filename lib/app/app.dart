@@ -10,6 +10,8 @@ import '../features/settings/settings_controller.dart';
 import '../features/tasks/tasks_page.dart';
 import '../platform/window_service.dart';
 
+const String appEdition = String.fromEnvironment('APP_EDITION', defaultValue: 'pure');
+
 class SyncTaskApp extends StatelessWidget {
   const SyncTaskApp({super.key});
 
@@ -89,7 +91,7 @@ class SyncTaskApp extends StatelessWidget {
 
         return MaterialApp(
           key: ValueKey(windowMode),
-          title: 'SyncTask',
+          title: appEdition == 'ai' ? 'SyncTask AI Studio' : 'SyncTask',
           debugShowCheckedModeBanner: false,
           themeMode: settings.themeMode,
           theme: lightTheme,

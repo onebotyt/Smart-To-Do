@@ -6,14 +6,14 @@
 
 <p align="center">
   <strong>Native, cross-platform, local-first task manager with direct device-to-device sync.</strong><br>
-  <em>No cloud backend. No mandatory accounts. 100% user data ownership.</em>
+  <em>Available in two editions: Ultra-lightweight Pure Edition & Autonomous AI Studio Edition.</em>
 </p>
 
 <p align="center">
   <a href="https://github.com/onebotyt/Smart-To-Do/releases/latest"><img src="https://img.shields.io/github/v/release/onebotyt/Smart-To-Do?label=Latest%20Release&color=indigo" alt="Latest Release" /></a>
   <a href="https://github.com/onebotyt/Smart-To-Do/releases/tag/v0.1.60"><img src="https://img.shields.io/badge/Current%20Version-v0.1.60-blue" alt="Current Version v0.1.60" /></a>
   <a href="https://github.com/onebotyt/Smart-To-Do/actions"><img src="https://img.shields.io/github/actions/workflow/status/onebotyt/Smart-To-Do/build.yml?branch=main&label=Build%20Status" alt="Build Status" /></a>
-  <img src="https://img.shields.io/badge/Tests-39%20Passing-brightgreen" alt="39 Passing Tests" />
+  <img src="https://img.shields.io/badge/Tests-88%20Passing-brightgreen" alt="88 Passing Tests" />
   <img src="https://img.shields.io/badge/Platforms-Android%20%7C%20Windows-blue" alt="Supported Platforms" />
   <img src="https://img.shields.io/badge/License-MIT-green" alt="License" />
 </p>
@@ -22,18 +22,37 @@
 
 ## 🚀 Direct One-Click Downloads (Latest Version: v0.1.60)
 
-Always get the newest release directly with a single click below:
+SyncTask is available in two distinct editions that can be **installed side-by-side on the same phone and PC** without any conflict!
+
+### 🟢 1. SyncTask Pure (Commercial / Non-AI Edition)
+> **Best for:** Fast daily task management, battery efficiency, and privacy. Ultra-lightweight (<40 MB RAM, runs smoothly on 6GB RAM phones like Vivo T3 Lite), local SQLite, Wi-Fi P2P sync, optional MongoDB Atlas cloud sync via Render, containerized silent ads, and ₹10/month Ad-Free plan. Ready for Google Play Store.
+>
+> 📱 **Android Package ID**: `com.synctask.pure` | 💻 **Windows Title**: `SyncTask Pure`
 
 | Platform | Format / Architecture | Direct Download Link | Alternative Link | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| 💻 **Windows (Setup Installer)** | Official Setup `.exe` | [📥 **Download Windows Setup (v0.1.60)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.60/SyncTask-Setup.exe) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Setup.exe) | Standard Windows Setup Wizard with Desktop & Start Menu Icons |
-| 💻 **Windows (Portable ZIP)** | Portable Bundle + Script | [📥 **Download Windows ZIP (v0.1.60)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.60/SyncTask-Windows.zip) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Windows.zip) | Portable archive with `Install-SyncTask.cmd` script |
-| 📱 **Android (Recommended)** | `arm64-v8a` APK | [📥 **Download Android APK (v0.1.60)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.60/SyncTask-Android-arm64.apk) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Android-arm64.apk) | Optimized for modern phones (~28 MB) |
-| 📱 **Android (Universal)** | Multi-ABI APK | [📥 **Download Universal APK (v0.1.60)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.60/SyncTask-Android.apk) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Android.apk) | Compatible with all Android devices |
+| 💻 **Windows (Setup Installer)** | Official Setup `.exe` | [📥 **Download Pure Setup (v0.1.60)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.60/SyncTask-Pure-Setup.exe) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Pure-Setup.exe) | Standard Windows Setup Wizard with Desktop & Start Menu Icons |
+| 💻 **Windows (Portable ZIP)** | Portable Bundle + Script | [📥 **Download Pure ZIP (v0.1.60)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.60/SyncTask-Pure-Windows.zip) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Pure-Windows.zip) | Portable archive with `Install-SyncTask.cmd` script |
+| 📱 **Android (Recommended)** | `arm64-v8a` APK | [📥 **Download Pure APK (v0.1.60)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.60/SyncTask-Pure-Android-arm64.apk) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Pure-Android-arm64.apk) | Optimized for modern phones (~28 MB) |
+| 📱 **Android (Universal)** | Multi-ABI APK | [📥 **Download Pure Universal APK (v0.1.60)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.60/SyncTask-Pure-Android.apk) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Pure-Android.apk) | Compatible with all Android devices |
 
+---
+
+### 🤖 2. SyncTask AI Studio & Sky Assistant (AI Edition)
+> **Best for:** Developers and AI power users. Includes Sky AI Companion, Local SLM Model Gateway, Lenovo Gaming 3 RTX 2050 GPU offloading, Multi-agent orchestrator, Project Graph Studio, and floating desktop companion.
+>
+> 📱 **Android Package ID**: `com.synctask.aistudio` | 💻 **Windows Title**: `SyncTask AI Studio`
+
+| Platform | Format / Architecture | Direct Download Link | Alternative Link | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| 💻 **Windows (Setup Installer)** | Official Setup `.exe` | [📥 **Download AI Studio Setup (v0.1.60)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.60/SyncTask-AI-Studio-Setup.exe) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-AI-Studio-Setup.exe) | Setup Wizard installing alongside Pure edition |
+| 💻 **Windows (Portable ZIP)** | Portable Bundle + Script | [📥 **Download AI Studio ZIP (v0.1.60)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.60/SyncTask-AI-Studio-Windows.zip) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-AI-Studio-Windows.zip) | Portable bundle with Studio and Sky Gateway |
+| 📱 **Android (Recommended)** | `arm64-v8a` APK | [📥 **Download AI Studio APK (v0.1.60)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.60/SyncTask-AI-Studio-Android-arm64.apk) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-AI-Studio-Android-arm64.apk) | AI Studio Edition with Sky Assistant |
+| 📱 **Android (Universal)** | Multi-ABI APK | [📥 **Download AI Studio Universal APK (v0.1.60)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.60/SyncTask-AI-Studio-Android.apk) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-AI-Studio-Android.apk) | Compatible with all Android devices |
+
+> 💡 **Side-by-Side Dual Installation**: Both editions have distinct application IDs (`com.synctask.pure` and `com.synctask.aistudio`) and distinct desktop directories. You can install and use both at the same time on your mobile phone and PC!
+>
 > 📦 *View full changelogs and historical archives on the [GitHub Releases Page](https://github.com/onebotyt/Smart-To-Do/releases).*
-> 
-> ℹ️ *Note for Android: Because v0.1.60 introduces our permanent cryptographic signing certificate, uninstall any older test version once before installing this build. All future updates will install seamlessly over this release!*
 
 ---
 
@@ -41,21 +60,22 @@ Always get the newest release directly with a single click below:
 
 ### 🖥️ Windows
 **Option 1: Setup Installer (Easiest)**
-1. Download [**SyncTask-Setup.exe**](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Setup.exe).
+1. Download [**SyncTask-Pure-Setup.exe**](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Pure-Setup.exe) (or [**SyncTask-AI-Studio-Setup.exe**](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-AI-Studio-Setup.exe)).
 2. Double-click the downloaded setup file.
 3. Follow the standard Windows Setup Wizard.
 4. SyncTask will be installed with its official icon on your **Desktop**, **Start Menu Programs**, and Windows **Installed Apps**, and launch automatically!
 
 **Option 2: Portable ZIP Package**
-1. Download [**SyncTask-Windows.zip**](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Windows.zip).
+1. Download [**SyncTask-Pure-Windows.zip**](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Pure-Windows.zip).
 2. Right-click and choose **Extract All...**.
 3. Inside the extracted folder, double-click **`Install-SyncTask.cmd`** to automatically set up shortcuts and register the app.
 
 ### 📱 Android
-1. Download [**SyncTask-Android-arm64.apk**](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Android-arm64.apk) directly on your device.
+1. Download [**SyncTask-Pure-Android-arm64.apk**](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Pure-Android-arm64.apk) directly on your device.
 2. Tap the downloaded notification to open the package installer.
 3. If prompted, allow installation from this source.
 4. Tap **Install** or **Update**.
+*(You can also download and install [**SyncTask-AI-Studio-Android-arm64.apk**](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-AI-Studio-Android-arm64.apk) on the same phone without overwriting SyncTask Pure!)*
 
 ### 🔄 In-App Automatic Updates
 SyncTask automatically checks for newer versions on startup:
@@ -97,10 +117,19 @@ SyncTask automatically checks for newer versions on startup:
 - **`InkSparkle` Ripples**: Material 3 high-fidelity touch feedback.
 
 ### 🔄 Direct Phone–PC Synchronization (Zero Cloud)
-- **Local Wi-Fi P2P**: Direct socket communication over LAN on port `43884`—no servers, Firebase, or external accounts.
+- **Local Wi-Fi P2P**: Direct socket communication over LAN on port `43884`—no servers, Firebase, or external accounts required.
 - **LAN Discovery**: Discovers paired devices automatically using UDP broadcast.
 - **6-Digit PIN Pairing**: Secure mutual authentication ensures only authorized devices connect.
 - **3-Way Delta Conflict Resolver**: Version vectors track concurrent offline edits with Last-Write-Wins (LWW) and device tie-breaking.
+
+### ☁️ Optional MongoDB Atlas Cloud Sync (Render Hosted)
+- Connect to your cloud backend on [Render](https://render.com) backed by [MongoDB Atlas](https://www.mongodb.com/cloud/atlas).
+- Google Sign-In authentication with secure JWT tokens.
+- Incremental delta sync keeps local SQLite synchronized across all devices.
+
+### 💰 Non-Intrusive Monetization & ₹10/Month Ad-Free Plan
+- **Containerized Silent Ads**: Ads are restricted inside a dedicated container with an emergency manual close `[✕]` button. Never covers full screen or disrupts workflows.
+- **₹10 / Month Ad-Free Plan**: In-app upgrade to permanently remove ads for ₹10 INR (~$0.12 USD) per month.
 
 ### 📋 Universal Clipboard Sharing
 - Copy text on your phone and immediately paste it on your PC (and vice-versa).
@@ -120,6 +149,7 @@ SyncTask automatically checks for newer versions on startup:
 
 - **Framework**: Flutter (Stable Channel) & Dart 3
 - **Local Database**: SQLite via `sqflite` & `sqflite_common_ffi`
+- **Cloud Backend**: Node.js, Express, MongoDB Atlas, Mongoose, Render
 - **Networking**: Direct TCP Sockets & UDP Broadcast (`dart:io`) with zero cloud dependencies
 - **Security**: Cryptographic SHA-256 hashing (`crypto`)
 - **State Management**: `provider` + `ChangeNotifier`
@@ -146,11 +176,14 @@ flutter pub get
 # Run static analysis (0 warnings / clean)
 flutter analyze
 
-# Run all 39 automated tests
+# Run all 88 automated tests
 flutter test
 
-# Run on connected device or emulator
-flutter run
+# Run Pure edition
+flutter run --dart-define=APP_EDITION=pure
+
+# Run AI Studio edition
+flutter run --dart-define=APP_EDITION=ai
 ```
 
 ---
@@ -165,6 +198,8 @@ flutter run
 - [x] **Milestone 6**: UI/UX Modernization & Theme Palette — Note-first task editor, 8 selectable color themes, AMOLED mode, responsive filters.
 - [x] **Milestone 7**: Packaging & Installer — AOT split APKs (~20MB), Windows one-click desktop installer (`Install-SyncTask.cmd`), animated in-app updater.
 - [x] **Milestone 8**: Fluid Animations & Transitions — 60/120fps page zoom transitions, spring morph floating bubble, tactile completion micro-interactions.
+- [x] **Milestone 9**: Pure & AI Dual-App Split — Independent package IDs (`com.synctask.pure` & `com.synctask.aistudio`), MongoDB Atlas cloud sync, containerized ads, and ₹10/mo Ad-Free plan.
+- [ ] **Milestone 10**: Sky Desktop Companion — 3D Robot mascot floating corner companion with local RTX 2050 GPU offload.
 
 ---
 
