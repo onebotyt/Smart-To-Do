@@ -38,6 +38,22 @@ class HardwareProfile {
     maxContextLength: 4096,
   );
 
+  /// Optimized for mobile devices (e.g. Vivo T3 Lite, Android phones).
+  /// Strictly caps model footprint under 500 MB (e.g. Qwen 2.5 0.5B ~350MB or SmolLM2 ~220MB)
+  /// with automatic P2P offload to PC's RTX 2050 for complex tasks.
+  static const HardwareProfile mobileUnder500Mb = HardwareProfile(
+    name: 'Mobile Ultra-Light SLM (<500 MB RAM)',
+    maxVramMb: 0,
+    recommendedModelVramMb: 380, // strictly under 500 MB
+    recommendedModels: [
+      'qwen2.5:0.5b',
+      'smollm2:360m',
+      'sky-mobile-nano',
+      'p2p_pc_offload',
+    ],
+    maxContextLength: 2048,
+  );
+
   /// Optimized for mobile devices (e.g. Vivo T3 Lite, 6 GB RAM).
   /// Offloads heavy prompts to PC's RTX 2050 over local P2P sync.
   static const HardwareProfile mobileOffload = HardwareProfile(

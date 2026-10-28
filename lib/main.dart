@@ -91,10 +91,11 @@ Future<void> main([List<String> args = const []]) async {
 
   if (isAiEdition) {
     final memoryRepo = await MemoryRepository.open();
+    final isMobile = Platform.isAndroid || Platform.isIOS;
     final modelGateway = ManagedModelGateway(
-      modelId: 'sky-core',
-      modelName: 'Sky 1.5B',
-      estimatedMemoryMb: 500,
+      modelId: isMobile ? 'sky-mobile-nano' : 'sky-core',
+      modelName: isMobile ? 'Sky Mobile Nano (0.5B)' : 'Sky 1.5B',
+      estimatedMemoryMb: isMobile ? 380 : 500,
     );
     skyController = SkyController(
       modelGateway: modelGateway,
