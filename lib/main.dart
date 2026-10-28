@@ -60,17 +60,6 @@ Future<void> main([List<String> args = const []]) async {
   await clipboardController.init();
   final mediaController = MediaTransferController(syncEngine: syncController.engine);
   final settings = await SettingsController.load();
-  final memoryRepo = await MemoryRepository.open();
-  final modelGateway = ManagedModelGateway(
-    modelId: 'sky-core',
-    modelName: 'Sky 1.5B',
-    estimatedMemoryMb: 500,
-  );
-  final skyController = SkyController(
-    modelGateway: modelGateway,
-    memoryRepo: memoryRepo,
-  );
-  final memoryController = MemoryController(memoryRepo);
   final cloudSyncService = CloudSyncService();
 
   final taskController = TaskController(
@@ -97,21 +86,38 @@ Future<void> main([List<String> args = const []]) async {
     });
   }
 
-  skyController.taskController = taskController;
-  skyController.voiceService = NativeVoiceService.instance;
-
-  taskController.onTaskCompletionChanged = (task, completed) {
-    if (completed && isAiEdition) {
-      skyController.celebrateTaskCompletion(task.title);
-    }
-  };
+  final SkyController? skyController;
+  final MemoryController? memoryController;
 
   if (isAiEdition) {
+    final memoryRepo = await MemoryRepository.open();
+    final modelGateway = ManagedModelGateway(
+      modelId: 'sky-core',
+      modelName: 'Sky 1.5B',
+      estimatedMemoryMb: 500,
+    );
+    skyController = SkyController(
+      modelGateway: modelGateway,
+      memoryRepo: memoryRepo,
+    );
+    memoryController = MemoryController(memoryRepo);
+    skyController.taskController = taskController;
+    skyController.voiceService = NativeVoiceService.instance;
+
+    taskController.onTaskCompletionChanged = (task, completed) {
+      if (completed) {
+        skyController?.celebrateTaskCompletion(task.title);
+      }
+    };
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await Future.delayed(const Duration(milliseconds: 800));
-      final briefing = skyController.generateBriefing(taskController.tasks);
+      final briefing = skyController!.generateBriefing(taskController.tasks);
       skyController.speakBriefing(briefing);
     });
+  } else {
+    skyController = null;
+    memoryController = null;
   }
 
   syncController.engine.onTasksReceived = () {
@@ -121,8 +127,8 @@ Future<void> main([List<String> args = const []]) async {
   syncController.engine.onRemoteTasksApplied = (tasks) {
     for (final t in tasks) {
       if (t.deleted) continue;
-      if (t.completed) {
-        skyController.celebrateTaskCompletion(t.title);
+      if (t.completed && isAiEdition) {
+        skyController?.celebrateTaskCompletion(t.title);
       }
       if (Platform.isWindows) {
         if (t.completed) {
@@ -149,8 +155,14 @@ Future<void> main([List<String> args = const []]) async {
         ChangeNotifierProvider.value(value: syncController),
         ChangeNotifierProvider.value(value: clipboardController),
         ChangeNotifierProvider.value(value: mediaController),
-        ChangeNotifierProvider.value(value: skyController),
-        ChangeNotifierProvider.value(value: memoryController),
+        if (skyController != null)
+          ChangeNotifierProvider.value(value: skyController)
+        else
+          ChangeNotifierProvider<SkyController?>.value(value: null),
+        if (memoryController != null)
+          ChangeNotifierProvider.value(value: memoryController)
+        else
+          ChangeNotifierProvider<MemoryController?>.value(value: null),
         ChangeNotifierProvider.value(value: cloudSyncService),
       ],
       child: const SyncTaskApp(),

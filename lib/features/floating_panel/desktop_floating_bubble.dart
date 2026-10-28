@@ -167,10 +167,19 @@ class _DesktopFloatingBubbleState extends State<DesktopFloatingBubble>
                               fit: BoxFit.cover,
                             ),
                           )
-                        else
+                        else if (const String.fromEnvironment('APP_EDITION') == 'ai')
                           SkyMascotWidget(
                             size: 64,
                             mood: sky?.mood ?? SkyMascotMood.idle,
+                          )
+                        else
+                          ClipOval(
+                            child: Image.asset(
+                              'assets/logo.png',
+                              width: 58,
+                              height: 58,
+                              fit: BoxFit.cover,
+                            ),
                           ),
 
                         // Pending tasks badge

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:synctask/features/floating_panel/floating_task_panel.dart';
@@ -120,6 +121,12 @@ class _FloatingBubbleOverlayState extends State<FloatingBubbleOverlay>
 
   @override
   Widget build(BuildContext context) {
+    // On Android, the native FloatingBubbleService draws the system-level overlay window.
+    // Prevent duplicate in-app Flutter bubble on phones.
+    if (Platform.isAndroid) {
+      return widget.child;
+    }
+
     final settings = context.watch<SettingsController>();
     if (!settings.isFloatingBubbleEnabled) {
       return widget.child;
@@ -382,10 +389,20 @@ class _FloatingBubbleOverlayState extends State<FloatingBubbleOverlay>
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          SkyMascotWidget(
-                            size: 50,
-                            mood: sky?.mood ?? SkyMascotMood.idle,
-                          ),
+                          if (const String.fromEnvironment('APP_EDITION') == 'ai')
+                            SkyMascotWidget(
+                              size: 50,
+                              mood: sky?.mood ?? SkyMascotMood.idle,
+                            )
+                          else
+                            ClipOval(
+                              child: Image.asset(
+                                'assets/logo.png',
+                                width: 44,
+                                height: 44,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
                           if (pendingCount > 0)
                             Positioned(
                               right: 0,

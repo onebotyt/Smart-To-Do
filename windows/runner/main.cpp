@@ -30,13 +30,25 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
     }
   }
 
-  // Single-instance check:
-  // If an instance of SyncTask is already running on the PC:
-  HANDLE hMutex = ::CreateMutexW(nullptr, TRUE, L"SyncTask_Single_Instance_Mutex");
+  // Determine edition by executable path or folder:
+  wchar_t exePath[MAX_PATH];
+  ::GetModuleFileNameW(nullptr, exePath, MAX_PATH);
+  std::wstring pathStr(exePath);
+  bool is_ai = (pathStr.find(L"AI Studio") != std::wstring::npos ||
+                pathStr.find(L"aistudio") != std::wstring::npos);
+
+  const wchar_t* kMutexName = is_ai ? L"SyncTask_AI_Studio_Mutex" : L"SyncTask_Pure_Mutex";
+  const wchar_t* kWindowTitle = is_ai ? L"SyncTask AI Studio" : L"SyncTask";
+
+  // Single-instance check (allows Pure and AI Studio to run simultaneously):
+  HANDLE hMutex = ::CreateMutexW(nullptr, TRUE, kMutexName);
   if (::GetLastError() == ERROR_ALREADY_EXISTS) {
-    HWND existing_hwnd = ::FindWindowW(L"FLUTTER_RUNNER_WIN32_WINDOW", L"synctask");
+    HWND existing_hwnd = ::FindWindowW(L"FLUTTER_RUNNER_WIN32_WINDOW", kWindowTitle);
     if (!existing_hwnd) {
-      existing_hwnd = ::FindWindowW(nullptr, L"synctask");
+      existing_hwnd = ::FindWindowW(nullptr, kWindowTitle);
+    }
+    if (!existing_hwnd) {
+      existing_hwnd = ::FindWindowW(L"FLUTTER_RUNNER_WIN32_WINDOW", L"synctask");
     }
     if (existing_hwnd && !start_as_bubble) {
       // User clicked SyncTask app icon: restore existing window to normal full mode!
@@ -59,7 +71,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   FlutterWindow window(project);
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1280, 720);
-  if (!window.Create(L"synctask", origin, size)) {
+  if (!window.Create(kWindowTitle, origin, size)) {
     if (hMutex) ::CloseHandle(hMutex);
     return EXIT_FAILURE;
   }

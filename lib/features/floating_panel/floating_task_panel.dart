@@ -110,8 +110,10 @@ class _FloatingTaskPanelState extends State<FloatingTaskPanel> {
                   color: theme.colorScheme.surfaceContainerHighest,
                   child: Row(
                     children: [
-                    const ClipOval(
-                      child: SkyMascotWidget(size: 20),
+                    ClipOval(
+                      child: const String.fromEnvironment('APP_EDITION') == 'ai'
+                          ? const SkyMascotWidget(size: 20)
+                          : Image.asset('assets/logo.png', width: 20, height: 20),
                     ),
                     const SizedBox(width: 8),
                     Text(
@@ -302,7 +304,7 @@ class _FloatingTaskPanelState extends State<FloatingTaskPanel> {
             ),
 
               // Sky / Jarvis Autonomous AI HUD Banner
-              if (sky != null) _buildJarvisHud(context, sky, allTasks),
+              if (const String.fromEnvironment('APP_EDITION') == 'ai' && sky != null) _buildJarvisHud(context, sky, allTasks),
               // Quick Input Box
               Padding(
                 padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),

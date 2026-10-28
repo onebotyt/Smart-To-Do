@@ -360,7 +360,7 @@ class _TasksPageState extends State<TasksPage> with WidgetsBindingObserver {
                         ],
                       ),
                     ),
-                    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS)
+                    if (const String.fromEnvironment('APP_EDITION') == 'ai' && (Platform.isWindows || Platform.isLinux || Platform.isMacOS))
                       const PopupMenuItem(
                         value: 'studio',
                         child: Row(
@@ -516,7 +516,8 @@ class _TasksPageState extends State<TasksPage> with WidgetsBindingObserver {
               MaterialPageRoute(builder: (_) => const SettingsPage()),
             ),
           ),
-          if (Platform.isWindows || Platform.isLinux || Platform.isMacOS)
+          if (const String.fromEnvironment('APP_EDITION') == 'ai' &&
+              (Platform.isWindows || Platform.isLinux || Platform.isMacOS))
             _HeaderActionButton(
               icon: Icons.auto_awesome,
               tooltip: 'Launch AI Engineering Studio (Separate process)',
