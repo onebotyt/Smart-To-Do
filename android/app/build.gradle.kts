@@ -11,7 +11,7 @@ val editionProp = project.findProperty("APP_EDITION") as? String
 val isAiEdition = editionProp == "ai" || (dartDefinesString != null && run {
     try {
         val decoded = String(Base64.getDecoder().decode(dartDefinesString))
-        decoded.contains("APP_EDITION=ai")
+        decoded.contains("APP_EDITION=ai") || decoded.contains("APP_EDITION%3Dai")
     } catch (e: Exception) {
         false
     }

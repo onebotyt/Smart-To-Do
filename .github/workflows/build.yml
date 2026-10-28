@@ -52,6 +52,8 @@ jobs:
 
       - name: Build Android Release APKs (AI Studio Edition)
         run: |
+          flutter clean
+          flutter pub get
           flutter build apk --release --dart-define=APP_EDITION=ai --dart-define=APP_VERSION=0.1.${{ github.run_number }}
           flutter build apk --release --split-per-abi --dart-define=APP_EDITION=ai --dart-define=APP_VERSION=0.1.${{ github.run_number }}
           mkdir -p build/dist-ai
@@ -106,6 +108,8 @@ jobs:
       - name: Build Windows Desktop Release (AI Studio Edition)
         shell: pwsh
         run: |
+          flutter clean
+          flutter pub get
           Copy-Item "windows\runner\resources\app_icon_ai.ico" -Destination "windows\runner\resources\app_icon.ico" -Force
           flutter build windows --release -v --dart-define=APP_EDITION=ai --dart-define=APP_VERSION=0.1.${{ github.run_number }}
           .\windows\sign.ps1 -FilePath "build\windows\x64\runner\Release\synctask.exe"
