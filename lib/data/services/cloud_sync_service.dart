@@ -11,7 +11,7 @@ class CloudUser {
   final String id;
   final String email;
   final String displayName;
-  final String photoUrl;
+  final String? photoUrl;
   final bool isPremium;
   final DateTime? premiumExpiresAt;
 
@@ -19,17 +19,17 @@ class CloudUser {
     required this.id,
     required this.email,
     required this.displayName,
-    this.photoUrl = '',
+    this.photoUrl,
     this.isPremium = false,
     this.premiumExpiresAt,
   });
 
   factory CloudUser.fromJson(Map<String, dynamic> json) {
     return CloudUser(
-      id: json['id'] as String? ?? '',
+      id: json['id'] as String? ?? json['_id'] as String? ?? '',
       email: json['email'] as String? ?? '',
-      displayName: json['displayName'] as String? ?? 'SyncTask User',
-      photoUrl: json['photoUrl'] as String? ?? '',
+      displayName: json['displayName'] as String? ?? '',
+      photoUrl: json['photoUrl'] as String?,
       isPremium: json['isPremium'] as bool? ?? false,
       premiumExpiresAt: json['premiumExpiresAt'] != null
           ? DateTime.tryParse(json['premiumExpiresAt'].toString())
@@ -47,7 +47,7 @@ class CloudSyncService extends ChangeNotifier {
   static const String _lastSyncKey = 'synctask_last_cloud_sync';
   static const String _isPremiumKey = 'synctask_is_premium';
 
-  // Default production backend on Render (user can configure custom URL)
+  // Default production backend on Render
   static const String defaultBackendUrl = 'https://to-do-backend-zndz.onrender.com';
 
   String _backendUrl = defaultBackendUrl;
@@ -56,6 +56,11 @@ class CloudSyncService extends ChangeNotifier {
   bool _isSyncing = false;
   int _lastSyncTimestamp = 0;
   bool _isPremium = false;
+  String? _lastError;
+  Timer? _debounceTimer;
+
+  /// Callback fired when new tasks arrive from MongoDB Atlas so UI updates
+  VoidCallback? onCloudTasksApplied;
 
   CloudSyncService() {
     _loadState();
@@ -68,6 +73,7 @@ class CloudSyncService extends ChangeNotifier {
   bool get isSyncing => _isSyncing;
   bool get isPremium => _isPremium || (_currentUser?.isPremium ?? false);
   int get lastSyncTimestamp => _lastSyncTimestamp;
+  String? get lastError => _lastError;
 
   Future<void> _loadState() async {
     try {
@@ -100,6 +106,7 @@ class CloudSyncService extends ChangeNotifier {
     String? photoUrl,
   }) async {
     _isSyncing = true;
+    _lastError = null;
     notifyListeners();
 
     try {
@@ -139,8 +146,11 @@ class CloudSyncService extends ChangeNotifier {
         _isSyncing = false;
         notifyListeners();
         return true;
+      } else {
+        _lastError = 'Sign-in failed with status ${response.statusCode}';
       }
     } catch (e) {
+      _lastError = e.toString();
       debugPrint('[CloudSync] Google Login error: $e');
     } finally {
       _isSyncing = false;
@@ -153,9 +163,12 @@ class CloudSyncService extends ChangeNotifier {
   Future<void> signOut() async {
     _jwtToken = null;
     _currentUser = null;
+    _lastError = null;
+    _lastSyncTimestamp = 0;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_userKey);
+    await prefs.remove(_lastSyncKey);
     notifyListeners();
   }
 
@@ -189,17 +202,30 @@ class CloudSyncService extends ChangeNotifier {
     }
   }
 
+  /// Debounced cloud sync: batches rapid local edits and pushes to MongoDB.
+  void triggerDebouncedSync(
+    TaskRepository taskRepo, {
+    Duration delay = const Duration(milliseconds: 1500),
+  }) {
+    if (!isAuthenticated) return;
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(delay, () {
+      syncWithCloud(taskRepo);
+    });
+  }
+
   /// Perform incremental cloud sync with MongoDB Atlas via Render backend.
   Future<void> syncWithCloud(TaskRepository taskRepo) async {
     if (!isAuthenticated || _isSyncing) return;
     _isSyncing = true;
+    _lastError = null;
     notifyListeners();
 
     try {
       final client = HttpClient()..connectionTimeout = const Duration(seconds: 15);
 
-      // 1. PUSH: Push local tasks modified since last sync
-      final localTasks = await taskRepo.list();
+      // 1. PUSH: Push local tasks including deleted tombstones
+      final localTasks = await taskRepo.getAll(includeDeleted: true);
       final pushList = localTasks.map((t) => {
         'id': t.id,
         'title': t.title,
@@ -211,7 +237,7 @@ class CloudSyncService extends ChangeNotifier {
         'recurrence': t.recurrence.name,
         'revision': t.revision,
         'deviceId': t.deviceId,
-        'isDeleted': false,
+        'isDeleted': t.deleted,
         'createdAt': t.createdAt,
         'updatedAt': t.updatedAt,
       }).toList();
@@ -224,7 +250,7 @@ class CloudSyncService extends ChangeNotifier {
       final pushRes = await pushReq.close();
       await pushRes.drain();
 
-      // 2. PULL: Pull remote delta modifications
+      // 2. PULL: Pull remote delta modifications since lastSyncTimestamp
       final pullUri = Uri.parse('$_backendUrl/api/sync/pull?since=$_lastSyncTimestamp');
       final pullReq = await client.getUrl(pullUri);
       pullReq.headers.set('Authorization', 'Bearer $_jwtToken');
@@ -236,6 +262,7 @@ class CloudSyncService extends ChangeNotifier {
         final serverTime = data['serverTime'] as int? ?? DateTime.now().millisecondsSinceEpoch;
         final remoteTasks = data['tasks'] as List<dynamic>? ?? [];
 
+        bool tasksMutated = false;
         for (final item in remoteTasks) {
           final tMap = item as Map<String, dynamic>;
           final taskId = tMap['id'] as String;
@@ -245,6 +272,7 @@ class CloudSyncService extends ChangeNotifier {
           if (isDeleted) {
             if (existing != null && !existing.deleted) {
               await taskRepo.delete(taskId);
+              tasksMutated = true;
             }
           } else {
             final recurrence = Recurrence.values.firstWhere(
@@ -268,20 +296,34 @@ class CloudSyncService extends ChangeNotifier {
             );
 
             await taskRepo.applyRemoteTask(remoteTask);
+            tasksMutated = true;
           }
         }
 
         _lastSyncTimestamp = serverTime;
         final prefs = await SharedPreferences.getInstance();
         await prefs.setInt(_lastSyncKey, _lastSyncTimestamp);
+
+        if (tasksMutated) {
+          onCloudTasksApplied?.call();
+        }
+      } else {
+        _lastError = 'Server returned ${pullRes.statusCode}';
       }
 
       client.close();
     } catch (e) {
+      _lastError = e.toString();
       debugPrint('[CloudSync] Sync error: $e');
     } finally {
       _isSyncing = false;
       notifyListeners();
     }
+  }
+
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    super.dispose();
   }
 }

@@ -17,7 +17,9 @@ import '../sync/sync_controller.dart';
 import '../update/update_dialog.dart';
 import '../monetization/ad_container_widget.dart';
 import 'task_controller.dart';
-import 'task_edit_page.dart';
+import 'task_edit_page.dart';
+import '../../data/services/cloud_sync_service.dart';
+import '../sync/widgets/cloud_sync_status_button.dart';
 
 class TasksPage extends StatefulWidget {
   const TasksPage({super.key});
@@ -46,6 +48,11 @@ class _TasksPageState extends State<TasksPage> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _checkPendingAction();
+      final cloudSync = context.read<CloudSyncService?>();
+      final taskCtrl = context.read<TaskController?>();
+      if (cloudSync != null && cloudSync.isAuthenticated && taskCtrl != null) {
+        cloudSync.syncWithCloud(taskCtrl.repo);
+      }
     }
   }
 
@@ -157,6 +164,7 @@ class _TasksPageState extends State<TasksPage> with WidgetsBindingObserver {
         ),
         actions: isMobile
             ? [
+                const CloudSyncStatusButton(),
                 _HeaderActionButton(
                   icon: Icons.swap_horizontal_circle_outlined,
                   tooltip: 'Media & File Sharing',
@@ -460,6 +468,7 @@ class _TasksPageState extends State<TasksPage> with WidgetsBindingObserver {
               MaterialPageRoute(builder: (_) => const DevicesPage()),
             ),
           ),
+          const CloudSyncStatusButton(),
           _HeaderActionButton(
             icon: Icons.swap_horizontal_circle_outlined,
             tooltip: 'Media & File Sharing',

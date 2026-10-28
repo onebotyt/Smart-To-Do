@@ -77,8 +77,25 @@ Future<void> main([List<String> args = const []]) async {
     repo,
     settings,
     null,
-    () => syncController.triggerAutoSync(),
+    () {
+      syncController.triggerAutoSync();
+      if (!isAiEdition && cloudSyncService.isAuthenticated) {
+        cloudSyncService.triggerDebouncedSync(repo);
+      }
+    },
   )..refresh();
+
+  cloudSyncService.onCloudTasksApplied = () {
+    taskController.refresh();
+  };
+
+  if (!isAiEdition) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (cloudSyncService.isAuthenticated) {
+        cloudSyncService.syncWithCloud(repo);
+      }
+    });
+  }
 
   skyController.taskController = taskController;
   skyController.voiceService = NativeVoiceService.instance;
