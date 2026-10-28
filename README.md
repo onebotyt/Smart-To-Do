@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/onebotyt/Smart-To-Do/releases/latest"><img src="https://img.shields.io/github/v/release/onebotyt/Smart-To-Do?label=Latest%20Release&color=indigo" alt="Latest Release" /></a>
-  <a href="https://github.com/onebotyt/Smart-To-Do/releases/tag/v0.1.67"><img src="https://img.shields.io/badge/Current%20Version-v0.1.67-blue" alt="Current Version v0.1.67" /></a>
+  <a href="https://github.com/onebotyt/Smart-To-Do/releases/tag/v0.1.68"><img src="https://img.shields.io/badge/Current%20Version-v0.1.68-blue" alt="Current Version v0.1.68" /></a>
   <a href="https://github.com/onebotyt/Smart-To-Do/actions"><img src="https://img.shields.io/github/actions/workflow/status/onebotyt/Smart-To-Do/build.yml?branch=main&label=Build%20Status" alt="Build Status" /></a>
   <img src="https://img.shields.io/badge/Tests-88%20Passing-brightgreen" alt="88 Passing Tests" />
   <img src="https://img.shields.io/badge/Platforms-Android%20%7C%20Windows-blue" alt="Supported Platforms" />
@@ -20,7 +20,7 @@
 
 ---
 
-## 🚀 Direct One-Click Downloads (Latest Version: v0.1.67)
+## 🚀 Direct One-Click Downloads (Latest Version: v0.1.68)
 
 SyncTask is available in two distinct editions that can be **installed side-by-side on the same phone and PC** without any conflict!
 
@@ -31,10 +31,10 @@ SyncTask is available in two distinct editions that can be **installed side-by-s
 
 | Platform | Format / Architecture | Direct Download Link | Alternative Link | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| 💻 **Windows (Setup Installer)** | Official Setup `.exe` | [📥 **Download Pure Setup (v0.1.67)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.67/SyncTask-Pure-Setup.exe) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Pure-Setup.exe) | Standard Windows Setup Wizard with Desktop & Start Menu Icons |
-| 💻 **Windows (Portable ZIP)** | Portable Bundle + Script | [📥 **Download Pure ZIP (v0.1.67)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.67/SyncTask-Pure-Windows.zip) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Pure-Windows.zip) | Portable archive with `Install-SyncTask.cmd` script |
-| 📱 **Android (Recommended)** | `arm64-v8a` APK | [📥 **Download Pure APK (v0.1.67)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.67/SyncTask-Pure-Android-arm64.apk) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Pure-Android-arm64.apk) | Optimized for modern phones (~28 MB) |
-| 📱 **Android (Universal)** | Multi-ABI APK | [📥 **Download Pure Universal APK (v0.1.67)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.67/SyncTask-Pure-Android.apk) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Pure-Android.apk) | Compatible with all Android devices |
+| 💻 **Windows (Setup Installer)** | Official Setup `.exe` | [📥 **Download Pure Setup (v0.1.68)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.68/SyncTask-Pure-Setup.exe) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Pure-Setup.exe) | Standard Windows Setup Wizard with Desktop & Start Menu Icons |
+| 💻 **Windows (Portable ZIP)** | Portable Bundle + Script | [📥 **Download Pure ZIP (v0.1.68)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.68/SyncTask-Pure-Windows.zip) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Pure-Windows.zip) | Portable archive with `Install-SyncTask.cmd` script |
+| 📱 **Android (Recommended)** | `arm64-v8a` APK | [📥 **Download Pure APK (v0.1.68)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.68/SyncTask-Pure-Android-arm64.apk) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Pure-Android-arm64.apk) | Optimized for modern phones (~28 MB) |
+| 📱 **Android (Universal)** | Multi-ABI APK | [📥 **Download Pure Universal APK (v0.1.68)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.68/SyncTask-Pure-Android.apk) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-Pure-Android.apk) | Compatible with all Android devices |
 
 ---
 
@@ -45,10 +45,10 @@ SyncTask is available in two distinct editions that can be **installed side-by-s
 
 | Platform | Format / Architecture | Direct Download Link | Alternative Link | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| 💻 **Windows (Setup Installer)** | Official Setup `.exe` | [📥 **Download AI Studio Setup (v0.1.67)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.67/SyncTask-AI-Studio-Setup.exe) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-AI-Studio-Setup.exe) | Setup Wizard installing alongside Pure edition |
-| 💻 **Windows (Portable ZIP)** | Portable Bundle + Script | [📥 **Download AI Studio ZIP (v0.1.67)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.67/SyncTask-AI-Studio-Windows.zip) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-AI-Studio-Windows.zip) | Portable bundle with Studio and Sky Gateway |
-| 📱 **Android (Recommended)** | `arm64-v8a` APK | [📥 **Download AI Studio APK (v0.1.67)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.67/SyncTask-AI-Studio-Android-arm64.apk) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-AI-Studio-Android-arm64.apk) | AI Studio Edition with Sky Assistant |
-| 📱 **Android (Universal)** | Multi-ABI APK | [📥 **Download AI Studio Universal APK (v0.1.67)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.67/SyncTask-AI-Studio-Android.apk) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-AI-Studio-Android.apk) | Compatible with all Android devices |
+| 💻 **Windows (Setup Installer)** | Official Setup `.exe` | [📥 **Download AI Studio Setup (v0.1.68)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.68/SyncTask-AI-Studio-Setup.exe) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-AI-Studio-Setup.exe) | Setup Wizard installing alongside Pure edition |
+| 💻 **Windows (Portable ZIP)** | Portable Bundle + Script | [📥 **Download AI Studio ZIP (v0.1.68)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.68/SyncTask-AI-Studio-Windows.zip) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-AI-Studio-Windows.zip) | Portable bundle with Studio and Sky Gateway |
+| 📱 **Android (Recommended)** | `arm64-v8a` APK | [📥 **Download AI Studio APK (v0.1.68)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.68/SyncTask-AI-Studio-Android-arm64.apk) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-AI-Studio-Android-arm64.apk) | AI Studio Edition with Sky Assistant |
+| 📱 **Android (Universal)** | Multi-ABI APK | [📥 **Download AI Studio Universal APK (v0.1.68)**](https://github.com/onebotyt/Smart-To-Do/releases/download/v0.1.68/SyncTask-AI-Studio-Android.apk) | [Latest Mirror](https://github.com/onebotyt/Smart-To-Do/releases/latest/download/SyncTask-AI-Studio-Android.apk) | Compatible with all Android devices |
 
 > 💡 **Side-by-Side Dual Installation**: Both editions have distinct application IDs (`com.synctask.pure` and `com.synctask.aistudio`) and distinct desktop directories. You can install and use both at the same time on your mobile phone and PC!
 >
